@@ -1,3 +1,4 @@
+{-# OPTIONS --without-K #-}
 module diffCont where
 
 open import Data.Nat as Nat  hiding (_+_)
@@ -7,6 +8,7 @@ open import Data.Bool
 open import Data.Fin
 open import Data.Vec
 open import Data.Product
+open import Data.Sum
 open import Data.Product.Properties
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
 open import Relation.Binary.Definitions
@@ -15,6 +17,24 @@ open import Relation.Nullary
 open import Axiom.Extensionality.Propositional
 open import Level renaming (zero to lzero; suc to lsuc)
 
+record _<->_ (A B : Set) : Set where
+  field
+    to : A → B
+    from : B -> A
+    from-to : (x : A) -> from (to x) ≡ x
+    to-from : (x : B) -> to (from x) ≡ x
+open _<->_
+
+related-by : {A B : Set} -> A <-> B -> A -> B -> Set
+related-by f a b = to f a ≡ b × from f b ≡ a
+
+related-by-to : {A B : Set} -> (f : A <-> B)(a : A)(b : B) →
+                to f a ≡ b -> related-by f a b
+related-by-to f a ._ refl = refl , (from-to f a)
+
+related-by-from : {A B : Set} -> (f : A <-> B)(a : A)(b : B) →
+                  from f b ≡ a -> related-by f a b
+related-by-from f ._ b refl = (to-from f b) , refl
 
 -- A universe of finite sets
 mutual
@@ -52,7 +72,7 @@ record DecEqSet : Set1 where
 open DecEqSet
 
 -- Families with index sets with decidable equality
-record Fam {a} (D : Set a) : Set (a Level.⊔ lsuc lzero) where
+record Fam (D : Set) : Set1 where
   constructor fam
   field
     indexSet : DecEqSet
@@ -66,26 +86,26 @@ record Fam {a} (D : Set a) : Set (a Level.⊔ lsuc lzero) where
 
 open Fam
 
-FamAp : ∀ {a} {D D' : Set a} → (D → D') → Fam D → Fam D'
+FamAp : ∀ {D D' : Set} → (D → D') → Fam D → Fam D'
 indexSet (FamAp f X) = indexSet X
 el (FamAp f X) = λ y → f (el X y)
 
-ΣFam : ∀ {a} {I : DecEqSet}{D : Set a} → (carrier I → Fam D) -> Fam D
+ΣFam : ∀ {I : DecEqSet}{D : Set} → (carrier I → Fam D) -> Fam D
 ΣFam {I = I} X = fam ΣIX λ { (i , x) → el (X i) x } where
   ΣIX : DecEqSet
   carrier ΣIX = Σ[ i ∈ carrier I ] index (X i)
   decEq ΣIX = ≡-dec (decEq I) λ {i} → eq? (X i)
 
-infix 5 _▷_
+infix 5 _<|_
 record _-Container (n : FinSet) : Set1 where
-  constructor _▷_
+  constructor _<|_
   field
     Shape    : Set
     Position : Shape → Fam (El n)
 open _-Container
 
 ⟦_⟧ : ∀ {n} → n -Container → (El n → Set) → Set
-⟦_⟧ {n} (S ▷ P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
+⟦_⟧ {n} (S <| P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
 
 Hom : FinSet -> FinSet -> Set1
 Hom n m = El m → n -Container
@@ -98,10 +118,10 @@ carrier ⊤' = ⊤
 decEq ⊤' x y = yes refl
 
 ID : ∀ {n} → Hom n n
-ID = λ j → ⊤ ▷ λ _ → fam ⊤' (λ _ → j)
+ID = λ j → ⊤ <| λ _ → fam ⊤' (λ _ → j)
 
 COMP : ∀ {m k} → m -Container -> Hom k m → k -Container
-COMP {m} {k} (S ▷ P) F = (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) ▷ λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) }
+COMP {m} {k} (S <| P) F = (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) <| λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) }
 
 _;_ : ∀ {n m k} → Hom n m → Hom m k → Hom n k
 (F ; G) j = COMP (G j) F
@@ -112,11 +132,50 @@ postulate
 eq-Cont : ∀ {n} → {F G : n -Container} → (p : Shape F ≡ Shape G) → subst (λ z → z -> Fam (El n)) p (Position F) ≡ Position G → F ≡ G
 eq-Cont refl refl = refl
 
-_;ID : ∀ {n m} → (F : Hom n m) → F ; ID ≡ F
-F ;ID = ext λ j → eq-Cont {!!} {!!}
+record _≡Fam_ {X}(A B : Fam X) : Set where
+  field
+    indices : index A <-> index B
+    elements : (i : index A)(i' : index B) ->
+               related-by indices i i' ->
+               el A i ≡ el B i'
+open _≡Fam_
 
-ID;_ : ∀ {n m} → (F : Hom n m) → ID ; F ≡ F
-ID; F = ext λ j → eq-Cont {!!} {!!}
+record _≡Cont_ {n} (A B : n -Container) : Set where
+  field
+    shapes : Shape A <-> Shape B
+    positions : (s : Shape A)(s' : Shape B) ->
+                related-by shapes s s' ->
+                Position A s ≡Fam Position B s'
+open _≡Cont_
+
+_==_ : ∀ {n m} →  Hom n m -> Hom n m -> Set
+F == G = ∀ j → F j ≡Cont G j
+
+infix 4 _≡Cont_ _≡Fam_ _==_
+
+_;ID : ∀ {n m} → (F : Hom n m) → F ; ID == F
+to (shapes ((F ;ID) j)) (_ , x) = x _
+from (shapes ((F ;ID) j)) y = (tt , λ _ → y)
+from-to (shapes ((F ;ID) j)) x = refl
+to-from (shapes ((F ;ID) j)) y = refl
+to (indices (positions ((F ;ID) j) s ._ (refl , _))) (_ , x) = x
+from (indices (positions ((F ;ID) j) s ._ (refl , _))) x = (tt , x)
+from-to (indices (positions ((F ;ID) j) s ._ (refl , _))) x = refl
+to-from (indices (positions ((F ;ID) j) s ._ (refl , _))) y = refl
+elements (positions ((F ;ID) j) s ._ (refl , _)) i i' (refl , _) = refl
+
+ID;_ : ∀ {n m} → (F : Hom n m) → ID ; F == F
+to (shapes ((ID; F) j)) (x , _) = x
+from (shapes ((ID; F) j)) x = (x , λ _ → tt)
+from-to (shapes ((ID; F) j)) x = refl
+to-from (shapes ((ID; F) j)) y = refl
+to (indices (positions ((ID; F) j) s ._ (refl , _))) (x , _) = x
+from (indices (positions ((ID; F) j) s ._ (refl , _))) y = y , tt
+from-to (indices (positions ((ID; F) j) s ._ (refl , _))) x = refl
+to-from (indices (positions ((ID; F) j) s ._ (refl , _))) y = refl
+elements (positions ((ID; F) j) s ._ (refl , _)) i ._ (refl , _) = refl
+
+-- Cartesian structure
 
 fst : ∀ {n m} → Hom (n `+ m) n
 Shape (fst j) = ⊤
@@ -132,16 +191,31 @@ Shape (TIMES F G (inr x)) = Shape (G x)
 Position (TIMES F G (inl x)) s = FamAp inl (Position (F x) s)
 Position (TIMES F G (inr x)) s = FamAp inr (Position (G x) s)
 
+-- Left additive structure
+
 ZERO : ∀ {n m} → Hom n m
-ZERO j = ⊥ ▷ λ ()
+ZERO j = ⊥ <| λ ()
+
+ADD : ∀ {n} → n -Container -> n -Container -> n -Container
+ADD (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
+                                         ; (inj₂ s') → P' s' }
+PLUS : ∀ {n m} → Hom n m → Hom n m → Hom n m
+PLUS F G j = ADD (F j) (G j)
+
+H;F+G : ∀ {n m k} → (F G : Hom n m)(H : Hom k n) →
+     H ; PLUS F G ≡ PLUS (H ; F) (H ; G)
+H;F+G F G H = ext λ j → eq-Cont {!!} {!!}
+
+-- Derivatives
 
 _\\_ : (X : Set) → (x : X) → Set
 X \\ x = Σ[ y ∈ X ] (x ≡ y → ⊥)
 
 DIFF : ∀ {n} → n -Container → (`2 `× n) -Container
-Shape (DIFF (S ▷ P)) = Σ[ s ∈ S ] index (P s)
-indexSet (Position (DIFF (S ▷ P)) (s , h)) = indexSet (P s)
-el (Position (DIFF (S ▷ P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
+Shape (DIFF (S <| P)) = Σ[ s ∈ S ] index (P s)
+indexSet (Position (DIFF (S <| P)) (s , h)) = indexSet (P s)
+el (Position (DIFF (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
 
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DIFF (F j)
+
