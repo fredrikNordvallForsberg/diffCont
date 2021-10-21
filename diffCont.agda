@@ -203,19 +203,35 @@ PLUS : ∀ {n m} → Hom n m → Hom n m → Hom n m
 PLUS F G j = ADD (F j) (G j)
 
 H;F+G : ∀ {n m k} → (F G : Hom n m)(H : Hom k n) →
-     H ; PLUS F G ≡ PLUS (H ; F) (H ; G)
-H;F+G F G H = ext λ j → eq-Cont {!!} {!!}
+     H ; PLUS F G == PLUS (H ; F) (H ; G)
+to (shapes (H;F+G F G H j)) (inj₁ s , s') = inj₁ (s , s')
+to (shapes (H;F+G F G H j)) (inj₂ s , s') = inj₂ (s , s')
+from (shapes (H;F+G F G H j)) (inj₁ (s , s')) = (inj₁ s , s')
+from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = (inj₂ s , s')
+from-to (shapes (H;F+G F G H j)) (inj₁ s , s') = refl
+from-to (shapes (H;F+G F G H j)) (inj₂ s , s') = refl
+to-from (shapes (H;F+G F G H j)) (inj₁ (s , s')) = refl
+to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
+indices (positions (H;F+G F G H j) s s' x) = {!!}
+elements (positions (H;F+G F G H j) s s' x) = {!!}
 
 -- Derivatives
 
+{-
 _\\_ : (X : Set) → (x : X) → Set
 X \\ x = Σ[ y ∈ X ] (x ≡ y → ⊥)
+-}
 
 DIFF : ∀ {n} → n -Container → (`2 `× n) -Container
-Shape (DIFF (S <| P)) = Σ[ s ∈ S ] index (P s)
+Shape (DIFF (S <| P)) = Σ[ s ∈ S ] (index (P s))
 indexSet (Position (DIFF (S <| P)) (s , h)) = indexSet (P s)
 el (Position (DIFF (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
 
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DIFF (F j)
 
+ayes : Hom (`2 `× n) m -> Hom n m
+ayes = ?
+
+noes : Hom (`2 `× n) m -> Hom n m
+noes = ?
