@@ -7,7 +7,7 @@ open import Data.Empty
 open import Data.Bool
 open import Data.Fin
 open import Data.Vec
-open import Data.Product
+open import Data.Product as Sigma
 open import Data.Sum
 open import Data.Product.Properties
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
@@ -16,6 +16,7 @@ open import Relation.Nullary.Decidable
 open import Relation.Nullary
 open import Axiom.Extensionality.Propositional
 open import Level renaming (zero to lzero; suc to lsuc)
+open import Function
 
 record _<->_ (A B : Set) : Set where
   field
@@ -96,6 +97,9 @@ el (FamAp f X) = λ y → f (el X y)
   carrier ΣIX = Σ[ i ∈ carrier I ] index (X i)
   decEq ΣIX = ≡-dec (decEq I) λ {i} → eq? (X i)
 
+ΣFamAp : ∀ {I : DecEqSet}{D D' : Set} → (carrier I → Fam D) -> (D → D') → Fam D'
+ΣFamAp {I} X f = FamAp f (ΣFam {I} X)
+
 infix 5 _<|_
 record _-Container (n : FinSet) : Set1 where
   constructor _<|_
@@ -117,6 +121,11 @@ Hom n m = El m → n -Container
 carrier ⊤' = ⊤
 decEq ⊤' x y = yes refl
 
+⊥' : DecEqSet
+carrier ⊥' = ⊥
+decEq ⊥' ()
+
+
 ID : ∀ {n} → Hom n n
 ID = λ j → ⊤ <| λ _ → fam ⊤' (λ _ → j)
 
@@ -129,8 +138,10 @@ _;_ : ∀ {n m k} → Hom n m → Hom m k → Hom n k
 postulate
   ext : Extensionality lzero (lsuc lzero)
 
+{-
 eq-Cont : ∀ {n} → {F G : n -Container} → (p : Shape F ≡ Shape G) → subst (λ z → z -> Fam (El n)) p (Position F) ≡ Position G → F ≡ G
 eq-Cont refl refl = refl
+-}
 
 record _≡Fam_ {X}(A B : Fam X) : Set where
   field
@@ -230,8 +241,14 @@ el (Position (DIFF (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DIFF (F j)
 
-ayes : Hom (`2 `× n) m -> Hom n m
-ayes = ?
+ifTrue : {X : Set} → Bool × X -> Fam X
+ifTrue (true , x) = fam ⊤' λ _ → x
+ifTrue (false , x) = fam ⊥' λ ()
 
-noes : Hom (`2 `× n) m -> Hom n m
-noes = ?
+ayes : ∀ {n m} → Hom (`2 `× n) m -> Hom n m
+Shape (ayes F j) = Shape (F j)
+Position (ayes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue ((el (Position (F j) s) p)))
+
+noes : ∀ {n m} → Hom (`2 `× n) m -> Hom n m
+Shape (noes F j) = Shape (F j)
+Position (noes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue (Sigma.map not id (el (Position (F j) s) p)))
