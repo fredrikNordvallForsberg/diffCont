@@ -26,6 +26,12 @@ record _<->_ (A B : Set) : Set where
     to-from : (x : B) -> to (from x) ≡ x
 open _<->_
 
+<->-refl : {A : Set} → A <-> A
+to <->-refl = λ x → x
+from <->-refl = λ x → x
+from-to <->-refl = λ x → refl
+to-from <->-refl = λ x → refl
+
 related-by : {A B : Set} -> A <-> B -> A -> B -> Set
 related-by f a b = to f a ≡ b × from f b ≡ a
 
@@ -151,6 +157,10 @@ record _≡Fam_ {X}(A B : Fam X) : Set where
                el A i ≡ el B i'
 open _≡Fam_
 
+≡Fam-refl : {X : Set}{A : Fam X} → A ≡Fam A
+indices ≡Fam-refl = <->-refl
+elements ≡Fam-refl i ._ (refl , snd) = refl
+
 record _≡Cont_ {n} (A B : n -Container) : Set where
   field
     shapes : Shape A <-> Shape B
@@ -213,6 +223,9 @@ ADD (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
 PLUS : ∀ {n m} → Hom n m → Hom n m → Hom n m
 PLUS F G j = ADD (F j) (G j)
 
+-- TODO: assoc + units + comm for PLUS
+
+{-
 H;F+G : ∀ {n m k} → (F G : Hom n m)(H : Hom k n) →
      H ; PLUS F G == PLUS (H ; F) (H ; G)
 to (shapes (H;F+G F G H j)) (inj₁ s , s') = inj₁ (s , s')
@@ -223,8 +236,49 @@ from-to (shapes (H;F+G F G H j)) (inj₁ s , s') = refl
 from-to (shapes (H;F+G F G H j)) (inj₂ s , s') = refl
 to-from (shapes (H;F+G F G H j)) (inj₁ (s , s')) = refl
 to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
-indices (positions (H;F+G F G H j) s s' x) = {!!}
+to (indices (positions (H;F+G F G H j) s s' x)) = {!!}
+from (indices (positions (H;F+G F G H j) s s' x)) = {!!}
+from-to (indices (positions (H;F+G F G H j) s s' x)) = {!!}
+to-from (indices (positions (H;F+G F G H j) s s' x)) = {!!}
 elements (positions (H;F+G F G H j) s s' x) = {!!}
+-}
+
+H;0 : ∀ {n m k} → (H : Hom k n) → H ; ZERO == (ZERO {k} {m})
+to (shapes (H;0 H j)) = proj₁
+from (shapes (H;0 H j)) = λ ()
+from-to (shapes (H;0 H j)) = λ { (() , x) }
+to-from (shapes (H;0 H j)) = λ ()
+positions (H;0 H j) s () x
+
+helper : ∀ {n} {m} {k} (F G : Hom n (m `+ k)) {j : El m} →
+         Shape (F (inl j)) ⊎ Shape (G (inl j)) →
+         Σ ⊤ (λ s → (x : ⊤) → Shape (F (inl j))) ⊎
+         Σ ⊤ (λ s → (x : ⊤) → Shape (G (inl j)))
+helper F G (inj₁ x) = inj₁ (_ , λ _ → x)
+helper F G (inj₂ y) = inj₂ (_ , λ _ → y)
+
+
+
+F+G;fst : ∀ {n m k} → (F G : Hom n (m `+ k)) →
+          (PLUS F G ; fst) == PLUS (F ; fst) (G ; fst)
+to (shapes (F+G;fst F G j)) (_ , x) = helper F G (x tt)
+from (shapes (F+G;fst F G j)) (inj₁ (_ , x)) = _ , λ _ → inj₁ (x _)
+from (shapes (F+G;fst F G j)) (inj₂ (_ , y)) = _ , λ _ → inj₂ (y _)
+from-to (shapes (F+G;fst F G j)) (_ , x) = helper-lemma (x tt) where
+  helper-lemma :  (w : Shape (F (inl j)) ⊎ Shape (G (inl j))) →
+                   from (shapes (F+G;fst F G j)) (helper F G w) ≡ (tt , λ _ → w)
+  helper-lemma (inj₁ x) = refl
+  helper-lemma (inj₂ y) = refl
+to-from (shapes (F+G;fst F G j)) (inj₁ x) = refl
+to-from (shapes (F+G;fst F G j)) (inj₂ y) = refl
+positions (F+G;fst F G j) (_ , ._) (inj₁ x) (p , refl) = ≡Fam-refl
+positions (F+G;fst F G j) (_ , ._) (inj₂ y) (p , refl) = ≡Fam-refl
+
+{-
+F+G;snd : ∀ {n m k} → (F G : Hom n (m `+ k)) →
+          (PLUS F G ; snd) == PLUS (F ; snd) (G ; snd)
+F+G;snd = {!!}
+-}
 
 -- Derivatives
 
