@@ -225,7 +225,6 @@ PLUS F G j = ADD (F j) (G j)
 
 -- TODO: assoc + units + comm for PLUS
 
-{-
 H;F+G : ∀ {n m k} → (F G : Hom n m)(H : Hom k n) →
      H ; PLUS F G == PLUS (H ; F) (H ; G)
 to (shapes (H;F+G F G H j)) (inj₁ s , s') = inj₁ (s , s')
@@ -236,12 +235,8 @@ from-to (shapes (H;F+G F G H j)) (inj₁ s , s') = refl
 from-to (shapes (H;F+G F G H j)) (inj₂ s , s') = refl
 to-from (shapes (H;F+G F G H j)) (inj₁ (s , s')) = refl
 to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
-to (indices (positions (H;F+G F G H j) s s' x)) = {!!}
-from (indices (positions (H;F+G F G H j) s s' x)) = {!!}
-from-to (indices (positions (H;F+G F G H j) s s' x)) = {!!}
-to-from (indices (positions (H;F+G F G H j) s s' x)) = {!!}
-elements (positions (H;F+G F G H j) s s' x) = {!!}
--}
+positions (H;F+G F G H j) (inj₁ x₁ , snd₁) s' (refl , q) = ≡Fam-refl
+positions (H;F+G F G H j) (inj₂ y , snd₁) s' (refl , q) = ≡Fam-refl
 
 H;0 : ∀ {n m k} → (H : Hom k n) → H ; ZERO == (ZERO {k} {m})
 to (shapes (H;0 H j)) = proj₁
