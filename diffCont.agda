@@ -74,6 +74,16 @@ pattern inr x = (true , x)
 `Π `2 b = b false `× b true
 `Π (`Σ a b) c = `Π a λ x → `Π (b x) λ y → c (x , y)
 
+2*n<->n+n : ∀ {n} → El (`2 `× n) <-> El (n `+ n)
+to 2*n<->n+n (true , x) = (true , x)
+to 2*n<->n+n (false , x) = (false , x)
+from 2*n<->n+n (true , x) = (true , x)
+from 2*n<->n+n (false , x) = (false , x)
+from-to 2*n<->n+n (true , x) = refl
+from-to 2*n<->n+n (false , x) = refl
+to-from 2*n<->n+n (true , x) = refl
+to-from 2*n<->n+n (false , x) = refl
+
 -- sets with decidable equality
 record DecEqSet : Set1 where
   field
@@ -153,8 +163,11 @@ F == G = ∀ j → F j ≡Cont G j
 ⟦_⟧Hom : ∀ {n m} → Hom n m → (El n → Set) → (El m → Set)
 ⟦ F ⟧Hom X j = ⟦ F j ⟧ X
 
+Id' : ∀ {n m} → El n <-> El m → Hom n m
+Id' f j = ⊤ <| λ _ → fam ⊤' λ _ → from f j
+
 Id : ∀ {n} → Hom n n
-Id = λ j → ⊤ <| λ _ → fam ⊤' (λ _ → j)
+Id = Id' <->-refl
 
 Whisker : ∀ {m k} → m -Container -> Hom k m → k -Container
 Whisker {m} {k} (S <| P) F =
@@ -188,13 +201,15 @@ elements (positions ((Id; F) j) s ._ (refl , _)) i ._ (refl , _) = refl
 
 -- Cartesian structure
 
+proj : ∀ {n m} → (f : El n → El m) → Hom m n
+Shape (proj f j) = ⊤
+Position (proj f j) _ = fam ⊤' λ _ → f j
+
 fst : ∀ {n m} → Hom (n `+ m) n
-Shape (fst j) = ⊤
-Position (fst j) _ = fam ⊤' λ _ → inl j
+fst = proj inl
 
 snd : ∀ {n m} → Hom (n `+ m) m
-Shape (snd j) = ⊤
-Position (snd j) _ = fam ⊤' λ _ → inr j
+snd = proj inr
 
 Times : ∀ {n n' m m'} → (F : Hom n m)(G : Hom n' m') → Hom (n `+ n') (m `+ m')
 Shape (Times F G (inl x)) = Shape (F x)
@@ -204,8 +219,8 @@ Position (Times F G (inr x)) s = Fam-map inr (Position (G x) s)
 
 -- Left additive structure
 
-Zero : ∀ {n m} → Hom n m
-Zero j = ⊥ <| λ ()
+Zero : ∀ n m → Hom n m
+Zero n m j = ⊥ <| λ ()
 
 CoprodCont : ∀ {n} → n -Container -> n -Container -> n -Container
 CoprodCont (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
@@ -229,7 +244,7 @@ to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
 positions (H;F+G F G H j) (inj₁ x₁ , snd₁) s' (refl , q) = ≡Fam-refl
 positions (H;F+G F G H j) (inj₂ y , snd₁) s' (refl , q) = ≡Fam-refl
 
-H;0 : ∀ {n m k} → (H : Hom k n) → H ; Zero == (Zero {k} {m})
+H;0 : ∀ {n m k} → (H : Hom k n) → H ; Zero _ _ == (Zero k m)
 to (shapes (H;0 H j)) = proj₁
 from (shapes (H;0 H j)) = λ ()
 from-to (shapes (H;0 H j)) = λ { (() , x) }
@@ -244,6 +259,7 @@ helper F G (inj₁ x) = inj₁ (_ , λ _ → x)
 helper F G (inj₂ y) = inj₂ (_ , λ _ → y)
 
 
+-- TODO: update to talk about proj f in general
 
 F+G;fst : ∀ {n m k} → (F G : Hom n (m `+ k)) →
           (Plus F G ; fst) == Plus (F ; fst) (G ; fst)
@@ -280,6 +296,43 @@ el (Position (DiffContainer (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P
 
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DiffContainer (F j)
+
+DZero=Zero : ∀ {n m} → D (Zero n m) == Zero _ _
+to (shapes (DZero=Zero j)) (() , s)
+from (shapes (DZero=Zero j)) ()
+from-to (shapes (DZero=Zero j)) (() , s)
+to-from (shapes (DZero=Zero j)) ()
+positions (DZero=Zero j) s ()
+
+D[F+G]=DF+DG : ∀ {n m} → (F G : Hom n m) → D (Plus F G) == Plus (D F) (D G)
+to (shapes (D[F+G]=DF+DG F G j)) (inj₁ x , y) = inj₁ (x , y)
+to (shapes (D[F+G]=DF+DG F G j)) (inj₂ x , y) = inj₂ (x , y)
+from (shapes (D[F+G]=DF+DG F G j)) (inj₁ (x , y)) = inj₁ x , y
+from (shapes (D[F+G]=DF+DG F G j)) (inj₂ (x , y)) = inj₂ x , y
+from-to (shapes (D[F+G]=DF+DG F G j)) (inj₁ x , y) = refl
+from-to (shapes (D[F+G]=DF+DG F G j)) (inj₂ x , y) = refl
+to-from (shapes (D[F+G]=DF+DG F G j)) (inj₁ (x , y)) = refl
+to-from (shapes (D[F+G]=DF+DG F G j)) (inj₂ (x , y)) = refl
+indices (positions (D[F+G]=DF+DG F G j) (inj₁ x , y) .(to (shapes (D[F+G]=DF+DG F G j)) (inj₁ x , y)) (refl , q)) = <->-refl
+elements (positions (D[F+G]=DF+DG F G j) (inj₁ x , y) .(to (shapes (D[F+G]=DF+DG F G j)) (inj₁ x , y)) (refl , q)) i i (refl , r) = refl
+indices (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=DF+DG F G j)) (inj₂ y₁ , y)) (refl , q)) = <->-refl
+elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=DF+DG F G j)) (inj₂ y₁ , y)) (refl , q)) i i (refl , r) = refl
+
+-- TODO: update to talk about proj ...
+
+DId=snd : ∀ {n} → D (Id {n}) == (Id' 2*n<->n+n ; snd {n} {n})
+to (shapes (DId=snd j)) = _
+from (shapes (DId=snd j)) = _
+from-to (shapes (DId=snd j)) x = refl
+to-from (shapes (DId=snd j)) x = refl
+to (indices (positions (DId=snd j) s s' (p , q))) = _
+from (indices (positions (DId=snd j) s s' (p , q))) = _
+from-to (indices (positions (DId=snd j) s s' (p , q))) x = refl
+to-from (indices (positions (DId=snd j) s s' (p , q))) x = refl
+elements (positions (DId=snd j) s s' (p , q)) i i' r = refl
+
+-------------------------------
+
 
 ifTrue : {X : Set} → Bool × X -> Fam X
 ifTrue (true , x) = fam ⊤' λ _ → x
