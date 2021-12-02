@@ -18,6 +18,9 @@ open import Axiom.Extensionality.Propositional
 open import Level renaming (zero to lzero; suc to lsuc)
 open import Function
 
+infix 4 _≡Cont_ _≡Fam_ _==_
+infix 5 _<|_
+
 record _<->_ (A B : Set) : Set where
   field
     to : A → B
@@ -78,6 +81,14 @@ record DecEqSet : Set1 where
     decEq : Decidable (_≡_ {A = carrier})
 open DecEqSet
 
+⊤' : DecEqSet
+carrier ⊤' = ⊤
+decEq ⊤' x y = yes refl
+
+⊥' : DecEqSet
+carrier ⊥' = ⊥
+decEq ⊥' ()
+
 -- Families with index sets with decidable equality
 record Fam (D : Set) : Set1 where
   constructor fam
@@ -93,62 +104,6 @@ record Fam (D : Set) : Set1 where
 
 open Fam
 
-FamAp : ∀ {D D' : Set} → (D → D') → Fam D → Fam D'
-indexSet (FamAp f X) = indexSet X
-el (FamAp f X) = λ y → f (el X y)
-
-ΣFam : ∀ {I : DecEqSet}{D : Set} → (carrier I → Fam D) -> Fam D
-ΣFam {I = I} X = fam ΣIX λ { (i , x) → el (X i) x } where
-  ΣIX : DecEqSet
-  carrier ΣIX = Σ[ i ∈ carrier I ] index (X i)
-  decEq ΣIX = ≡-dec (decEq I) λ {i} → eq? (X i)
-
-ΣFamAp : ∀ {I : DecEqSet}{D D' : Set} → (carrier I → Fam D) -> (D → D') → Fam D'
-ΣFamAp {I} X f = FamAp f (ΣFam {I} X)
-
-infix 5 _<|_
-record _-Container (n : FinSet) : Set1 where
-  constructor _<|_
-  field
-    Shape    : Set
-    Position : Shape → Fam (El n)
-open _-Container
-
-⟦_⟧ : ∀ {n} → n -Container → (El n → Set) → Set
-⟦_⟧ {n} (S <| P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
-
-Hom : FinSet -> FinSet -> Set1
-Hom n m = El m → n -Container
-
-⟦_⟧Hom : ∀ {n m} → Hom n m → (El n → Set) → (El m → Set)
-⟦ F ⟧Hom X j = ⟦ F j ⟧ X
-
-⊤' : DecEqSet
-carrier ⊤' = ⊤
-decEq ⊤' x y = yes refl
-
-⊥' : DecEqSet
-carrier ⊥' = ⊥
-decEq ⊥' ()
-
-
-ID : ∀ {n} → Hom n n
-ID = λ j → ⊤ <| λ _ → fam ⊤' (λ _ → j)
-
-COMP : ∀ {m k} → m -Container -> Hom k m → k -Container
-COMP {m} {k} (S <| P) F = (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) <| λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) }
-
-_;_ : ∀ {n m k} → Hom n m → Hom m k → Hom n k
-(F ; G) j = COMP (G j) F
-
-postulate
-  ext : Extensionality lzero (lsuc lzero)
-
-{-
-eq-Cont : ∀ {n} → {F G : n -Container} → (p : Shape F ≡ Shape G) → subst (λ z → z -> Fam (El n)) p (Position F) ≡ Position G → F ≡ G
-eq-Cont refl refl = refl
--}
-
 record _≡Fam_ {X}(A B : Fam X) : Set where
   field
     indices : index A <-> index B
@@ -161,6 +116,23 @@ open _≡Fam_
 indices ≡Fam-refl = <->-refl
 elements ≡Fam-refl i ._ (refl , snd) = refl
 
+Fam-map : ∀ {D D' : Set} → (D → D') → Fam D → Fam D'
+indexSet (Fam-map f X) = indexSet X
+el (Fam-map f X) = λ y → f (el X y)
+
+ΣFam : ∀ {I : DecEqSet}{D : Set} → (carrier I → Fam D) -> Fam D
+ΣFam {I = I} X = fam ΣIX λ { (i , x) → el (X i) x } where
+  ΣIX : DecEqSet
+  carrier ΣIX = Σ[ i ∈ carrier I ] index (X i)
+  decEq ΣIX = ≡-dec (decEq I) λ {i} → eq? (X i)
+
+record _-Container (n : FinSet) : Set1 where
+  constructor _<|_
+  field
+    Shape    : Set
+    Position : Shape → Fam (El n)
+open _-Container
+
 record _≡Cont_ {n} (A B : n -Container) : Set where
   field
     shapes : Shape A <-> Shape B
@@ -169,32 +141,50 @@ record _≡Cont_ {n} (A B : n -Container) : Set where
                 Position A s ≡Fam Position B s'
 open _≡Cont_
 
+⟦_⟧ : ∀ {n} → n -Container → (El n → Set) → Set
+⟦_⟧ {n} (S <| P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
+
+Hom : FinSet -> FinSet -> Set1
+Hom n m = El m → n -Container
+
 _==_ : ∀ {n m} →  Hom n m -> Hom n m -> Set
 F == G = ∀ j → F j ≡Cont G j
 
-infix 4 _≡Cont_ _≡Fam_ _==_
+⟦_⟧Hom : ∀ {n m} → Hom n m → (El n → Set) → (El m → Set)
+⟦ F ⟧Hom X j = ⟦ F j ⟧ X
 
-_;ID : ∀ {n m} → (F : Hom n m) → F ; ID == F
-to (shapes ((F ;ID) j)) (_ , x) = x _
-from (shapes ((F ;ID) j)) y = (tt , λ _ → y)
-from-to (shapes ((F ;ID) j)) x = refl
-to-from (shapes ((F ;ID) j)) y = refl
-to (indices (positions ((F ;ID) j) s ._ (refl , _))) (_ , x) = x
-from (indices (positions ((F ;ID) j) s ._ (refl , _))) x = (tt , x)
-from-to (indices (positions ((F ;ID) j) s ._ (refl , _))) x = refl
-to-from (indices (positions ((F ;ID) j) s ._ (refl , _))) y = refl
-elements (positions ((F ;ID) j) s ._ (refl , _)) i i' (refl , _) = refl
+Id : ∀ {n} → Hom n n
+Id = λ j → ⊤ <| λ _ → fam ⊤' (λ _ → j)
 
-ID;_ : ∀ {n m} → (F : Hom n m) → ID ; F == F
-to (shapes ((ID; F) j)) (x , _) = x
-from (shapes ((ID; F) j)) x = (x , λ _ → tt)
-from-to (shapes ((ID; F) j)) x = refl
-to-from (shapes ((ID; F) j)) y = refl
-to (indices (positions ((ID; F) j) s ._ (refl , _))) (x , _) = x
-from (indices (positions ((ID; F) j) s ._ (refl , _))) y = y , tt
-from-to (indices (positions ((ID; F) j) s ._ (refl , _))) x = refl
-to-from (indices (positions ((ID; F) j) s ._ (refl , _))) y = refl
-elements (positions ((ID; F) j) s ._ (refl , _)) i ._ (refl , _) = refl
+Whisker : ∀ {m k} → m -Container -> Hom k m → k -Container
+Whisker {m} {k} (S <| P) F =
+  (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) <|
+  (λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) })
+
+_;_ : ∀ {n m k} → Hom n m → Hom m k → Hom n k
+(F ; G) j = Whisker (G j) F
+
+_;Id : ∀ {n m} → (F : Hom n m) → F ; Id == F
+to (shapes ((F ;Id) j)) (_ , x) = x _
+from (shapes ((F ;Id) j)) y = (tt , λ _ → y)
+from-to (shapes ((F ;Id) j)) x = refl
+to-from (shapes ((F ;Id) j)) y = refl
+to (indices (positions ((F ;Id) j) s ._ (refl , _))) (_ , x) = x
+from (indices (positions ((F ;Id) j) s ._ (refl , _))) x = (tt , x)
+from-to (indices (positions ((F ;Id) j) s ._ (refl , _))) x = refl
+to-from (indices (positions ((F ;Id) j) s ._ (refl , _))) y = refl
+elements (positions ((F ;Id) j) s ._ (refl , _)) i i' (refl , _) = refl
+
+Id;_ : ∀ {n m} → (F : Hom n m) → Id ; F == F
+to (shapes ((Id; F) j)) (x , _) = x
+from (shapes ((Id; F) j)) x = (x , λ _ → tt)
+from-to (shapes ((Id; F) j)) x = refl
+to-from (shapes ((Id; F) j)) y = refl
+to (indices (positions ((Id; F) j) s ._ (refl , _))) (x , _) = x
+from (indices (positions ((Id; F) j) s ._ (refl , _))) y = y , tt
+from-to (indices (positions ((Id; F) j) s ._ (refl , _))) x = refl
+to-from (indices (positions ((Id; F) j) s ._ (refl , _))) y = refl
+elements (positions ((Id; F) j) s ._ (refl , _)) i ._ (refl , _) = refl
 
 -- Cartesian structure
 
@@ -206,27 +196,28 @@ snd : ∀ {n m} → Hom (n `+ m) m
 Shape (snd j) = ⊤
 Position (snd j) _ = fam ⊤' λ _ → inr j
 
-TIMES : ∀ {n n' m m'} → (F : Hom n m)(G : Hom n' m') → Hom (n `+ n') (m `+ m')
-Shape (TIMES F G (inl x)) = Shape (F x)
-Shape (TIMES F G (inr x)) = Shape (G x)
-Position (TIMES F G (inl x)) s = FamAp inl (Position (F x) s)
-Position (TIMES F G (inr x)) s = FamAp inr (Position (G x) s)
+Times : ∀ {n n' m m'} → (F : Hom n m)(G : Hom n' m') → Hom (n `+ n') (m `+ m')
+Shape (Times F G (inl x)) = Shape (F x)
+Shape (Times F G (inr x)) = Shape (G x)
+Position (Times F G (inl x)) s = Fam-map inl (Position (F x) s)
+Position (Times F G (inr x)) s = Fam-map inr (Position (G x) s)
 
 -- Left additive structure
 
-ZERO : ∀ {n m} → Hom n m
-ZERO j = ⊥ <| λ ()
+Zero : ∀ {n m} → Hom n m
+Zero j = ⊥ <| λ ()
 
-ADD : ∀ {n} → n -Container -> n -Container -> n -Container
-ADD (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
+CoprodCont : ∀ {n} → n -Container -> n -Container -> n -Container
+CoprodCont (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
                                          ; (inj₂ s') → P' s' }
-PLUS : ∀ {n m} → Hom n m → Hom n m → Hom n m
-PLUS F G j = ADD (F j) (G j)
 
--- TODO: assoc + units + comm for PLUS
+Plus : ∀ {n m} → Hom n m → Hom n m → Hom n m
+Plus F G j = CoprodCont (F j) (G j)
+
+-- TODO: assoc + units + comm for Plus
 
 H;F+G : ∀ {n m k} → (F G : Hom n m)(H : Hom k n) →
-     H ; PLUS F G == PLUS (H ; F) (H ; G)
+     H ; Plus F G == Plus (H ; F) (H ; G)
 to (shapes (H;F+G F G H j)) (inj₁ s , s') = inj₁ (s , s')
 to (shapes (H;F+G F G H j)) (inj₂ s , s') = inj₂ (s , s')
 from (shapes (H;F+G F G H j)) (inj₁ (s , s')) = (inj₁ s , s')
@@ -238,7 +229,7 @@ to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
 positions (H;F+G F G H j) (inj₁ x₁ , snd₁) s' (refl , q) = ≡Fam-refl
 positions (H;F+G F G H j) (inj₂ y , snd₁) s' (refl , q) = ≡Fam-refl
 
-H;0 : ∀ {n m k} → (H : Hom k n) → H ; ZERO == (ZERO {k} {m})
+H;0 : ∀ {n m k} → (H : Hom k n) → H ; Zero == (Zero {k} {m})
 to (shapes (H;0 H j)) = proj₁
 from (shapes (H;0 H j)) = λ ()
 from-to (shapes (H;0 H j)) = λ { (() , x) }
@@ -255,7 +246,7 @@ helper F G (inj₂ y) = inj₂ (_ , λ _ → y)
 
 
 F+G;fst : ∀ {n m k} → (F G : Hom n (m `+ k)) →
-          (PLUS F G ; fst) == PLUS (F ; fst) (G ; fst)
+          (Plus F G ; fst) == Plus (F ; fst) (G ; fst)
 to (shapes (F+G;fst F G j)) (_ , x) = helper F G (x tt)
 from (shapes (F+G;fst F G j)) (inj₁ (_ , x)) = _ , λ _ → inj₁ (x _)
 from (shapes (F+G;fst F G j)) (inj₂ (_ , y)) = _ , λ _ → inj₂ (y _)
@@ -271,7 +262,7 @@ positions (F+G;fst F G j) (_ , ._) (inj₂ y) (p , refl) = ≡Fam-refl
 
 {-
 F+G;snd : ∀ {n m k} → (F G : Hom n (m `+ k)) →
-          (PLUS F G ; snd) == PLUS (F ; snd) (G ; snd)
+          (Plus F G ; snd) == Plus (F ; snd) (G ; snd)
 F+G;snd = {!!}
 -}
 
@@ -282,13 +273,13 @@ _\\_ : (X : Set) → (x : X) → Set
 X \\ x = Σ[ y ∈ X ] (x ≡ y → ⊥)
 -}
 
-DIFF : ∀ {n} → n -Container → (`2 `× n) -Container
-Shape (DIFF (S <| P)) = Σ[ s ∈ S ] (index (P s))
-indexSet (Position (DIFF (S <| P)) (s , h)) = indexSet (P s)
-el (Position (DIFF (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
+DiffContainer : ∀ {n} → n -Container → (`2 `× n) -Container
+Shape (DiffContainer (S <| P)) = Σ[ s ∈ S ] (index (P s))
+indexSet (Position (DiffContainer (S <| P)) (s , h)) = indexSet (P s)
+el (Position (DiffContainer (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
 
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
-D F j = DIFF (F j)
+D F j = DiffContainer (F j)
 
 ifTrue : {X : Set} → Bool × X -> Fam X
 ifTrue (true , x) = fam ⊤' λ _ → x
