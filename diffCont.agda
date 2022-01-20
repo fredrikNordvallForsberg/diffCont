@@ -320,6 +320,8 @@ elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=
 
 -- TODO: update to talk about proj ...
 
+-- POSSIBLY GOOD IDEA: Generalise to any morphism that behaves like Id (or Id' f)
+
 DId=snd : ∀ {n} → D (Id {n}) == (Id' 2*n<->n+n ; snd {n} {n})
 to (shapes (DId=snd j)) = _
 from (shapes (DId=snd j)) = _
@@ -330,6 +332,28 @@ from (indices (positions (DId=snd j) s s' (p , q))) = _
 from-to (indices (positions (DId=snd j) s s' (p , q))) x = refl
 to-from (indices (positions (DId=snd j) s s' (p , q))) x = refl
 elements (positions (DId=snd j) s s' (p , q)) i i' r = refl
+
+Dfst=snd;fst : ∀ {n m} → D (fst {n} {m}) == (Id' 2*n<->n+n ; (snd ; fst))
+to (shapes (Dfst=snd;fst j)) _ = (tt , (λ _ → tt)) , λ _ → tt
+from (shapes (Dfst=snd;fst j)) _ = tt , tt
+from-to (shapes (Dfst=snd;fst j)) x = refl
+to-from (shapes (Dfst=snd;fst j)) x = refl
+to (indices (positions (Dfst=snd;fst j) s s' (p , q))) _ = (tt , tt) , tt
+from (indices (positions (Dfst=snd;fst j) s s' (p , q))) _ = tt
+from-to (indices (positions (Dfst=snd;fst j) s s' (p , q))) x = refl
+to-from (indices (positions (Dfst=snd;fst j) s s' (p , q))) x = refl
+elements (positions (Dfst=snd;fst j) s s' (p , q)) tt ((tt , tt) , tt) _ = refl
+
+Dsnd=snd;snd : ∀ {n m} → D (snd {n} {m}) == (Id' 2*n<->n+n ; (snd ; snd))
+to (shapes (Dsnd=snd;snd j)) _ = (tt , (λ _ → tt)) , λ _ → tt
+from (shapes (Dsnd=snd;snd j)) _ = tt , tt
+from-to (shapes (Dsnd=snd;snd j)) x = refl
+to-from (shapes (Dsnd=snd;snd j)) x = refl
+to (indices (positions (Dsnd=snd;snd j) s s' (p , q))) _ = (tt , tt) , tt
+from (indices (positions (Dsnd=snd;snd j) s s' (p , q))) _ = tt
+from-to (indices (positions (Dsnd=snd;snd j) s s' (p , q))) x = refl
+to-from (indices (positions (Dsnd=snd;snd j) s s' (p , q))) x = refl
+elements (positions (Dsnd=snd;snd j) s s' (p , q)) tt ((tt , tt) , tt) = λ x → refl
 
 -------------------------------
 
