@@ -63,10 +63,10 @@ _`×_ : FinSet -> FinSet -> FinSet
 a `× b = `Σ a (λ _ → b)
 
 _`+_ : FinSet -> FinSet -> FinSet
-a `+ b = `Σ `2 (λ { false → a ; true → b })
+a `+ b = `Σ `2 (λ { true → a ; false → b })
 
-pattern inl x = (false , x)
-pattern inr x = (true , x)
+pattern inl x = (true , x)
+pattern inr x = (false , x)
 
 `Π : (a : FinSet) -> (El a -> FinSet) -> FinSet
 `Π `0 b = `1
@@ -75,14 +75,15 @@ pattern inr x = (true , x)
 `Π (`Σ a b) c = `Π a λ x → `Π (b x) λ y → c (x , y)
 
 2*n<->n+n : ∀ {n} → El (`2 `× n) <-> El (n `+ n)
-to 2*n<->n+n (true , x) = (true , x)
 to 2*n<->n+n (false , x) = (false , x)
-from 2*n<->n+n (true , x) = (true , x)
+to 2*n<->n+n (true , x) = (true , x)
 from 2*n<->n+n (false , x) = (false , x)
-from-to 2*n<->n+n (true , x) = refl
+from 2*n<->n+n (true , x) = (true , x)
 from-to 2*n<->n+n (false , x) = refl
-to-from 2*n<->n+n (true , x) = refl
+from-to 2*n<->n+n (true , x) = refl
 to-from 2*n<->n+n (false , x) = refl
+to-from 2*n<->n+n (true , x) = refl
+
 
 -- sets with decidable equality
 record DecEqSet : Set1 where
@@ -292,7 +293,7 @@ X \\ x = Σ[ y ∈ X ] (x ≡ y → ⊥)
 DiffContainer : ∀ {n} → n -Container → (`2 `× n) -Container
 Shape (DiffContainer (S <| P)) = Σ[ s ∈ S ] (index (P s))
 indexSet (Position (DiffContainer (S <| P)) (s , h)) = indexSet (P s)
-el (Position (DiffContainer (S <| P)) (s , h)) p = isYes (eq? (P s) p h) , el (P s) p
+el (Position (DiffContainer (S <| P)) (s , h)) p = (isYes (eq? (P s) p h) , el (P s) p)
 
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DiffContainer (F j)
@@ -322,38 +323,38 @@ elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=
 
 -- POSSIBLY GOOD IDEA: Generalise to any morphism that behaves like Id (or Id' f)
 
-DId=snd : ∀ {n} → D (Id {n}) == (Id' 2*n<->n+n ; snd {n} {n})
-to (shapes (DId=snd j)) = _
-from (shapes (DId=snd j)) = _
-from-to (shapes (DId=snd j)) x = refl
-to-from (shapes (DId=snd j)) x = refl
-to (indices (positions (DId=snd j) s s' (p , q))) = _
-from (indices (positions (DId=snd j) s s' (p , q))) = _
-from-to (indices (positions (DId=snd j) s s' (p , q))) x = refl
-to-from (indices (positions (DId=snd j) s s' (p , q))) x = refl
-elements (positions (DId=snd j) s s' (p , q)) i i' r = refl
+DId=fst : ∀ {n} → D (Id {n}) == (Id' 2*n<->n+n ; fst {n} {n})
+to (shapes (DId=fst j)) = _
+from (shapes (DId=fst j)) = _
+from-to (shapes (DId=fst j)) x = refl
+to-from (shapes (DId=fst j)) x = refl
+to (indices (positions (DId=fst j) s s' (p , q))) = _
+from (indices (positions (DId=fst j) s s' (p , q))) = _
+from-to (indices (positions (DId=fst j) s s' (p , q))) x = refl
+to-from (indices (positions (DId=fst j) s s' (p , q))) x = refl
+elements (positions (DId=fst j) s s' (p , q)) i i' r = refl
 
-Dfst=snd;fst : ∀ {n m} → D (fst {n} {m}) == (Id' 2*n<->n+n ; (snd ; fst))
-to (shapes (Dfst=snd;fst j)) _ = (tt , (λ _ → tt)) , λ _ → tt
-from (shapes (Dfst=snd;fst j)) _ = tt , tt
-from-to (shapes (Dfst=snd;fst j)) x = refl
-to-from (shapes (Dfst=snd;fst j)) x = refl
-to (indices (positions (Dfst=snd;fst j) s s' (p , q))) _ = (tt , tt) , tt
-from (indices (positions (Dfst=snd;fst j) s s' (p , q))) _ = tt
-from-to (indices (positions (Dfst=snd;fst j) s s' (p , q))) x = refl
-to-from (indices (positions (Dfst=snd;fst j) s s' (p , q))) x = refl
-elements (positions (Dfst=snd;fst j) s s' (p , q)) tt ((tt , tt) , tt) _ = refl
+Dfst=fst;fst : ∀ {n m} → D (fst {n} {m}) == (Id' 2*n<->n+n ; (fst ; fst))
+to (shapes (Dfst=fst;fst j)) _ = (tt , (λ _ → tt)) , λ _ → tt
+from (shapes (Dfst=fst;fst j)) _ = tt , tt
+from-to (shapes (Dfst=fst;fst j)) x = refl
+to-from (shapes (Dfst=fst;fst j)) x = refl
+to (indices (positions (Dfst=fst;fst j) s s' (p , q))) _ = (tt , tt) , tt
+from (indices (positions (Dfst=fst;fst j) s s' (p , q))) _ = tt
+from-to (indices (positions (Dfst=fst;fst j) s s' (p , q))) x = refl
+to-from (indices (positions (Dfst=fst;fst j) s s' (p , q))) x = refl
+elements (positions (Dfst=fst;fst j) s s' (p , q)) tt ((tt , tt) , tt) = λ x → refl
 
-Dsnd=snd;snd : ∀ {n m} → D (snd {n} {m}) == (Id' 2*n<->n+n ; (snd ; snd))
-to (shapes (Dsnd=snd;snd j)) _ = (tt , (λ _ → tt)) , λ _ → tt
-from (shapes (Dsnd=snd;snd j)) _ = tt , tt
-from-to (shapes (Dsnd=snd;snd j)) x = refl
-to-from (shapes (Dsnd=snd;snd j)) x = refl
-to (indices (positions (Dsnd=snd;snd j) s s' (p , q))) _ = (tt , tt) , tt
-from (indices (positions (Dsnd=snd;snd j) s s' (p , q))) _ = tt
-from-to (indices (positions (Dsnd=snd;snd j) s s' (p , q))) x = refl
-to-from (indices (positions (Dsnd=snd;snd j) s s' (p , q))) x = refl
-elements (positions (Dsnd=snd;snd j) s s' (p , q)) tt ((tt , tt) , tt) = λ x → refl
+Dsnd=fst;snd : ∀ {n m} → D (snd {n} {m}) == (Id' 2*n<->n+n ; (fst ; snd))
+to (shapes (Dsnd=fst;snd j)) _ = (tt , (λ _ → tt)) , λ _ → tt
+from (shapes (Dsnd=fst;snd j)) _ = tt , tt
+from-to (shapes (Dsnd=fst;snd j)) x = refl
+to-from (shapes (Dsnd=fst;snd j)) x = refl
+to (indices (positions (Dsnd=fst;snd j) s s' (p , q))) _ = (tt , tt) , tt
+from (indices (positions (Dsnd=fst;snd j) s s' (p , q))) _ = tt
+from-to (indices (positions (Dsnd=fst;snd j) s s' (p , q))) x = refl
+to-from (indices (positions (Dsnd=fst;snd j) s s' (p , q))) x = refl
+elements (positions (Dsnd=fst;snd j) s s' (p , q)) tt ((tt , tt) , tt) _ = refl
 
 -------------------------------
 
