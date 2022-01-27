@@ -35,6 +35,12 @@ from <->-refl = λ x → x
 from-to <->-refl = λ x → refl
 to-from <->-refl = λ x → refl
 
+<->-sym : {A B : Set} → A <-> B → B <-> A
+to (<->-sym f) = from f
+from (<->-sym f) = to f
+from-to (<->-sym f) = to-from f
+to-from (<->-sym f) = from-to f
+
 related-by : {A B : Set} -> A <-> B -> A -> B -> Set
 related-by f a b = to f a ≡ b × from f b ≡ a
 
@@ -218,6 +224,12 @@ Shape (Times F G (inr x)) = Shape (G x)
 Position (Times F G (inl x)) s = Fam-map inl (Position (F x) s)
 Position (Times F G (inr x)) s = Fam-map inr (Position (G x) s)
 
+Δ : ∀ {n} → Hom n (n `+ n)
+Δ = proj (λ { (inr x) → x ; (inl y) → y })
+
+⟨_,_⟩ : ∀ {n m m'} → Hom n m → Hom n m' → Hom n (m `+ m')
+⟨ f , g ⟩ = Δ ; Times f g
+
 -- Left additive structure
 
 Zero : ∀ n m → Hom n m
@@ -298,6 +310,8 @@ el (Position (DiffContainer (S <| P)) (s , h)) p = (isYes (eq? (P s) p h) , el (
 D : ∀ {n m} → Hom n m → Hom (`2 `× n) m
 D F j = DiffContainer (F j)
 
+-- [CD.1]
+
 DZero=Zero : ∀ {n m} → D (Zero n m) == Zero _ _
 to (shapes (DZero=Zero j)) (() , s)
 from (shapes (DZero=Zero j)) ()
@@ -322,6 +336,8 @@ elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=
 -- TODO: update to talk about proj ...
 
 -- POSSIBLY GOOD IDEA: Generalise to any morphism that behaves like Id (or Id' f)
+
+-- [CD.3]
 
 DId=fst : ∀ {n} → D (Id {n}) == (Id' 2*n<->n+n ; fst {n} {n})
 to (shapes (DId=fst j)) = _
@@ -355,6 +371,34 @@ from (indices (positions (Dsnd=fst;snd j) s s' (p , q))) _ = tt
 from-to (indices (positions (Dsnd=fst;snd j) s s' (p , q))) x = refl
 to-from (indices (positions (Dsnd=fst;snd j) s s' (p , q))) x = refl
 elements (positions (Dsnd=fst;snd j) s s' (p , q)) tt ((tt , tt) , tt) _ = refl
+
+-- [CD.4]
+
+Dpair : ∀ {n m m'} → (f : Hom n m) → (g : Hom n m') → D ⟨ f , g ⟩ == ⟨ D f , D g ⟩
+to (shapes (Dpair f g (inl j))) ((x , _) , (y , _)) = (x , y) , (λ _ → tt)
+from (shapes (Dpair f g (inl j))) ((x , y) , _) = ((x , λ _ → tt) , (y , tt))
+from-to (shapes (Dpair f g (inl j))) x = refl
+to-from (shapes (Dpair f g (inl j))) x = refl
+indices (positions (Dpair f g (inl j)) s s' (p , refl)) = <->-refl
+elements (positions (Dpair f g (inl j)) ((x , _) , (y , _)) ((x , y) , _) (p , refl)) (i , _) (i' , _) (refl , q')
+  with decEq (indexSet (Position (f j) x)) i y
+... | yes refl = refl
+... | no z = refl
+to (shapes (Dpair f g (inr j))) ((x , _) , (y , _)) = (x , y) , (λ _ → tt)
+from (shapes (Dpair f g (inr j))) ((x , y) , _) = ((x , λ _ → tt) , (y , tt))
+from-to (shapes (Dpair f g (inr j))) x = refl
+to-from (shapes (Dpair f g (inr j))) x = refl
+indices (positions (Dpair f g (inr j)) s s' (p , refl)) = <->-refl
+elements (positions (Dpair f g (inr j)) ((x , _) , (y , _)) ((x , y) , _) (p , refl)) (i , _) (i' , _) (refl , q')
+  with decEq (indexSet (Position (g j) x)) i y
+... | yes refl = refl
+... | no z = refl
+
+-- [CD.5]
+
+chainRule : ∀ {n m k} → (f : Hom n m)(g : Hom m k) →
+            D (f ; g) == ⟨ D f , (Id' 2*n<->n+n ; fst {n} {n}) ; f ⟩ ; (Id' (<->-sym 2*n<->n+n) ; D g)
+chainRule = {!!}
 
 -------------------------------
 
