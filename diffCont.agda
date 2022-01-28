@@ -398,7 +398,21 @@ elements (positions (Dpair f g (inr j)) ((x , _) , (y , _)) ((x , y) , _) (p , r
 
 chainRule : ∀ {n m k} → (f : Hom n m)(g : Hom m k) →
             D (f ; g) == ⟨ D f , (Id' 2*n<->n+n ; fst {n} {n}) ; f ⟩ ; (Id' (<->-sym 2*n<->n+n) ; D g)
-chainRule = {!!}
+to (shapes (chainRule f g j)) ((x , y) , (z , w)) = ((x , z) , _) , sndPart where
+  sndPart :  (i : index (Position ((Id' (<->-sym 2*n<->n+n) ; D g) j) ((x , z) , _))) → Shape (⟨ D f , (Id' 2*n<->n+n ; fst) ; f ⟩ (el (Position ((Id' (<->-sym 2*n<->n+n) ; D g) j) ((x , z) , _)) i))
+  sndPart  (i , _) with (decEq (indexSet (Position (g j) x)) i z)
+  ... | yes refl = (y i , w) , _
+  ... | no q = ((y i) , _) , _
+
+from (shapes (chainRule f g j)) (((x , y) , _) , z) = (x , λ i → proj₁ (help i)) , y , proj₂ (help y) refl where
+  help : (i : carrier (indexSet (Position (g j) x))) → Σ[ s ∈ (Shape (f (el (Position (g j) x) i))) ] (i ≡ y -> index (Position (f (el (Position (g j) x) i)) s))
+  help i with decEq (indexSet (Position (g j) x)) i y | proj₁ (z (i , _))
+  ... | yes refl | (w , w') = (w , λ _ → w')
+  ... | no ¬i≡y | (w , _) = w , λ i≡y → ⊥-elim (¬i≡y i≡y)
+from-to (shapes (chainRule f g j)) = {!!}
+to-from (shapes (chainRule f g j)) = {!!}
+positions (chainRule f g j) = {!!}
+
 
 -------------------------------
 
