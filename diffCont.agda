@@ -1,4 +1,4 @@
-{-# OPTIONS --without-K #-}
+-- {-# OPTIONS --without-K #-}
 module diffCont where
 
 open import Data.Nat as Nat  hiding (_+_)
@@ -95,8 +95,13 @@ to-from 2*n<->n+n (true , x) = refl
 record DecEqSet : Set1 where
   field
     carrier : Set
-    decEq : Decidable (_≡_ {A = carrier})
+    decEq : DecidableEquality carrier
 open DecEqSet
+
+decEq-refl : ∀ {A : Set} → (dec : DecidableEquality A) → (x : A) → isYes (dec x x) ≡ true
+decEq-refl dec x with dec x x
+... | yes p = refl
+... | no p = ⊥-elim (p refl)
 
 ⊤' : DecEqSet
 carrier ⊤' = ⊤
@@ -180,6 +185,8 @@ Whisker : ∀ {m k} → m -Container -> Hom k m → k -Container
 Whisker {m} {k} (S <| P) F =
   (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) <|
   (λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) })
+
+infixr 6 _;_
 
 _;_ : ∀ {n m k} → Hom n m → Hom m k → Hom n k
 (F ; G) j = Whisker (G j) F
@@ -336,6 +343,41 @@ elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=
 -- TODO: update to talk about proj ...
 
 -- POSSIBLY GOOD IDEA: Generalise to any morphism that behaves like Id (or Id' f)
+
+-- [CD.2]
+
+Pair0;Df : ∀ {n m k} → (a : Hom n m)(f : Hom m k) →
+           ⟨ Zero n m , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f == Zero n k
+to (shapes (Pair0;Df {n} {m} {k} a f j)) (((x , x') , _), y) with decEq-refl (decEq (indexSet (Position (f j) x))) x' | y (x' , _)
+... | qq | (y' , _) rewrite qq = y'
+from (shapes (Pair0;Df {n} {m} {k} a f j)) ()
+from-to (shapes (Pair0;Df {n} {m} {k} a f j)) x = ⊥-elim (to (shapes (Pair0;Df {n} {m} {k} a f j)) x)
+to-from (shapes (Pair0;Df {n} {m} {k} a f j)) ()
+positions (Pair0;Df {n} {m} {k} a f j) s () (p , q)
+
+Pair+;Df : ∀ {n m k} → (a b c : Hom n m)(f : Hom m k) →
+           ⟨ Plus b c , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f == Plus (⟨ b , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f) (⟨ c , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f)
+to (shapes (Pair+;Df a b c f j)) (((x , x') , _) , y) with decEq-refl (decEq (indexSet (Position (f j) x))) x' | y (x' , _)
+... | qq | y' , _ rewrite qq with y'
+... | inj₁ y'' = inj₁ (((x , x') , _) , help)
+  where
+    help : (x₁ : Σ (carrier (indexSet (Position (f j) x))) (λ i → ⊤)) → Σ (Shape (Times b a (to 2*n<->n+n (isYes (decEq (indexSet (Position (f j) x)) (proj₁ x₁) x') , el (Position (f j) x) (proj₁ x₁))))) (λ s →(x₂ : carrier (indexSet (Position (Times b a (to 2*n<->n+n (isYes (decEq (indexSet (Position (f j) x)) (proj₁ x₁) x') , el (Position (f j) x) (proj₁ x₁)))) s))) → ⊤)
+    help (i , _) with decEq (indexSet (Position (f j) x)) i x' | inspect (decEq (indexSet (Position (f j) x)) i) x'
+    ... | yes refl | q = y'' , _
+    ... | no p | [ eq ] with y (i , _)
+    ... | (yi , _) rewrite eq = yi , _
+... | inj₂ y'' = inj₂ (((x , x') , _) , (λ (i , _) → {!!} , _))
+from (shapes (Pair+;Df a b c f j)) (inj₁ (((x , x') , _) , y)) = ((x , x') , _) , help
+  where
+    help : (x₁ : index (Position ((Id' (<->-sym 2*n<->n+n) ; D f) j) ((x , x') , (λ x₂ → tt)))) → Shape (⟨ Plus b c , a ⟩ (el (Position ((Id' (<->-sym 2*n<->n+n) ; D f) j) ((x , x') , (λ x₂ → tt))) x₁))
+    help i with decEq (indexSet (Position (f j) x)) (proj₁ i) x' | y i
+    ... | yes p | (y' , _) = inj₁ y' , _
+    ... | no p | (y' , _) = y' , _
+from (shapes (Pair+;Df a b c f j)) (inj₂ (((x , x') , _) , y)) = {!!}
+from-to (shapes (Pair+;Df a b c f j)) = {!!}
+to-from (shapes (Pair+;Df a b c f j)) = {!!}
+indices (positions (Pair+;Df a b c f j) s s' x) = {!!}
+elements (positions (Pair+;Df a b c f j) s s' x) = {!!}
 
 -- [CD.3]
 
