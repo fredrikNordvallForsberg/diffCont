@@ -466,6 +466,21 @@ to-from (shapes (chainRule f g j)) ((x , y) , z) = Inverse.f Σ-≡,≡↔≡ (r
 indices (positions (chainRule f g j) ((x , y) , (z , w)) ((x' , y') , z') (refl , q)) = {!!}
 elements (positions (chainRule f g j) s s'  x) = {!!}
 
+-- [CD.6]
+
+g0DDf : ∀ {n m} → (f : Hom n n)(g h : Hom m n)(k : Hom m n) →
+       ⟨ ⟨ g , Zero m n ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f) == ⟨ g , k ⟩' ; D f
+g0DDf = {!!}
+
+
+-- [CD.7]
+
+zeroesDDf : ∀ {n m ℓ} → (f : Hom n m)(g h k : Hom ℓ n) →
+             ⟨ ⟨ Zero ℓ n , h ⟩' , ⟨ g , k ⟩' ⟩' ; D (D f) ==
+              ⟨ ⟨ Zero ℓ n , g ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f)
+zeroesDDf = {!!}
+
+
 -------------------------------
 
 
