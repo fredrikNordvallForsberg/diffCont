@@ -1,4 +1,4 @@
--- {-# OPTIONS --without-K #-}
+{-# OPTIONS --without-K #-}
 module diffCont where
 
 open import Data.Nat as Nat  hiding (_+_)
@@ -8,7 +8,7 @@ open import Data.Bool
 open import Data.Fin
 open import Data.Vec
 open import Data.Product as Sigma
-open import Data.Sum
+open import Data.Sum as Sum
 open import Data.Product.Properties
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
 open import Relation.Binary.Definitions
@@ -17,9 +17,14 @@ open import Relation.Nullary
 open import Axiom.Extensionality.Propositional
 open import Level renaming (zero to lzero; suc to lsuc)
 open import Function
+open import Function.Bundles
 
 infix 4 _≡Cont_ _≡Fam_ _==_
 infix 5 _<|_
+
+
+postulate
+  funext : Extensionality lzero lzero
 
 record _<->_ (A B : Set) : Set where
   field
@@ -69,7 +74,7 @@ _`×_ : FinSet -> FinSet -> FinSet
 a `× b = `Σ a (λ _ → b)
 
 _`+_ : FinSet -> FinSet -> FinSet
-a `+ b = `Σ `2 (λ { true → a ; false → b })
+a `+ b = `Σ `2 (λ x → if x then a else b)
 
 pattern inl x = (true , x)
 pattern inr x = (false , x)
@@ -93,15 +98,18 @@ to-from 2*n<->n+n (true , x) = refl
 
 -- sets with decidable equality
 record DecEqSet : Set1 where
+  constructor mkDeqEqSet
   field
     carrier : Set
     decEq : DecidableEquality carrier
 open DecEqSet
 
+Dec-elim : {A : Set} → (P : Dec A -> Set) → ((a : A) → P (yes a)) → ((¬a : ¬ A) → P (no ¬a)) → (d : Dec A) → P d
+Dec-elim P pt pf (yes p) = pt p
+Dec-elim P pt pf (no ¬p) = pf ¬p
+
 decEq-refl : ∀ {A : Set} → (dec : DecidableEquality A) → (x : A) → isYes (dec x x) ≡ true
-decEq-refl dec x with dec x x
-... | yes p = refl
-... | no p = ⊥-elim (p refl)
+decEq-refl dec x = Dec-elim (λ d → isYes d ≡ true) (λ _ → refl) (λ ¬p → ⊥-elim (¬p refl)) (dec x x)
 
 ⊤' : DecEqSet
 carrier ⊤' = ⊤
@@ -143,10 +151,7 @@ indexSet (Fam-map f X) = indexSet X
 el (Fam-map f X) = λ y → f (el X y)
 
 ΣFam : ∀ {I : DecEqSet}{D : Set} → (carrier I → Fam D) -> Fam D
-ΣFam {I = I} X = fam ΣIX λ { (i , x) → el (X i) x } where
-  ΣIX : DecEqSet
-  carrier ΣIX = Σ[ i ∈ carrier I ] index (X i)
-  decEq ΣIX = ≡-dec (decEq I) λ {i} → eq? (X i)
+ΣFam {I = I} X = fam (mkDeqEqSet (Σ[ i ∈ carrier I ] index (X i)) (≡-dec (decEq I) λ {i} → eq? (X i))) λ ix → let i = proj₁ ix; x = proj₂ ix in el (X i) x
 
 record _-Container (n : FinSet) : Set1 where
   constructor _<|_
@@ -162,6 +167,11 @@ record _≡Cont_ {n} (A B : n -Container) : Set where
                 related-by shapes s s' ->
                 Position A s ≡Fam Position B s'
 open _≡Cont_
+
+≡Cont-refl : ∀ {n} → {A : n -Container} → A ≡Cont A
+shapes ≡Cont-refl = <->-refl
+indices (positions ≡Cont-refl s s' (refl , p)) = <->-refl
+elements (positions ≡Cont-refl s s' (refl , p)) i i' (refl , p') = refl
 
 ⟦_⟧ : ∀ {n} → n -Container → (El n → Set) → Set
 ⟦_⟧ {n} (S <| P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
@@ -184,7 +194,7 @@ Id = Id' <->-refl
 Whisker : ∀ {m k} → m -Container -> Hom k m → k -Container
 Whisker {m} {k} (S <| P) F =
   (Σ[ s ∈ S ] ((x : index (P s)) → Shape (F (el (P s) x)))) <|
-  (λ { (s , f) → ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x) })
+  (λ sf → let s = proj₁ sf; f = proj₂ sf in ΣFam {I = indexSet (P s)} λ x → Position (F (el (P s) x)) (f x))
 
 infixr 6 _;_
 
@@ -231,11 +241,33 @@ Shape (Times F G (inr x)) = Shape (G x)
 Position (Times F G (inl x)) s = Fam-map inl (Position (F x) s)
 Position (Times F G (inr x)) s = Fam-map inr (Position (G x) s)
 
-Δ : ∀ {n} → Hom n (n `+ n)
-Δ = proj (λ { (inr x) → x ; (inl y) → y })
-
 ⟨_,_⟩ : ∀ {n m m'} → Hom n m → Hom n m' → Hom n (m `+ m')
-⟨ f , g ⟩ = Δ ; Times f g
+⟨ f , g ⟩ (inl j) = f j
+⟨ f , g ⟩ (inr j) = g j
+
+⟨_,_⟩' : ∀ {n m} → (f g : Hom n m) → Hom n (`2 `× m)
+⟨ f , g ⟩' (true  , j) = f j
+⟨ f , g ⟩' (false , j) = g j
+
+⟨,⟩'=⟨,⟩ : ∀ {n m} → (f g : Hom n m) → ⟨ f , g ⟩' ; Id' 2*n<->n+n == ⟨ f , g ⟩
+to (shapes (⟨,⟩'=⟨,⟩ f g (inl j))) (_ , x) = x _
+from (shapes (⟨,⟩'=⟨,⟩ f g (inl j))) y = (_ , λ _ → y)
+from-to (shapes (⟨,⟩'=⟨,⟩ f g (inl j))) x = refl
+to-from (shapes (⟨,⟩'=⟨,⟩ f g (inl j))) y = refl
+to (indices (positions (⟨,⟩'=⟨,⟩ f g (inl j)) s s' (p , refl))) = proj₂
+from (indices (positions (⟨,⟩'=⟨,⟩ f g (inl j)) s s' (p , refl))) = λ x → _ , x
+from-to (indices (positions (⟨,⟩'=⟨,⟩ f g (inl j)) s s' (p , refl))) x = refl
+to-from (indices (positions (⟨,⟩'=⟨,⟩ f g (inl j)) s s' (p , refl))) x = refl
+elements (positions (⟨,⟩'=⟨,⟩ f g (inl j)) s s' (p , refl)) i i' (refl , q') = refl
+to (shapes (⟨,⟩'=⟨,⟩ f g (inr j))) (_ , x) = x _
+from (shapes (⟨,⟩'=⟨,⟩ f g (inr j))) y = (_ , λ _ → y)
+from-to (shapes (⟨,⟩'=⟨,⟩ f g (inr j))) x = refl
+to-from (shapes (⟨,⟩'=⟨,⟩ f g (inr j))) y = refl
+to (indices (positions (⟨,⟩'=⟨,⟩ f g (inr j)) s s' (p , refl))) = proj₂
+from (indices (positions (⟨,⟩'=⟨,⟩ f g (inr j)) s s' (p , refl))) = λ x → _ , x
+from-to (indices (positions (⟨,⟩'=⟨,⟩ f g (inr j)) s s' (p , refl))) x = refl
+to-from (indices (positions (⟨,⟩'=⟨,⟩ f g (inr j)) s s' (p , refl))) x = refl
+elements (positions (⟨,⟩'=⟨,⟩ f g (inr j)) s s' (p , refl)) i i' (refl , q') = refl
 
 -- Left additive structure
 
@@ -243,8 +275,7 @@ Zero : ∀ n m → Hom n m
 Zero n m j = ⊥ <| λ ()
 
 CoprodCont : ∀ {n} → n -Container -> n -Container -> n -Container
-CoprodCont (S <| P) (S' <| P') = (S ⊎ S') <| λ { (inj₁ s)  → P s
-                                         ; (inj₂ s') → P' s' }
+CoprodCont (S <| P) (S' <| P') = (S ⊎ S') <| Sum.[ P , P' ]
 
 Plus : ∀ {n m} → Hom n m → Hom n m → Hom n m
 Plus F G j = CoprodCont (F j) (G j)
@@ -264,7 +295,7 @@ to-from (shapes (H;F+G F G H j)) (inj₂ (s , s')) = refl
 positions (H;F+G F G H j) (inj₁ x₁ , snd₁) s' (refl , q) = ≡Fam-refl
 positions (H;F+G F G H j) (inj₂ y , snd₁) s' (refl , q) = ≡Fam-refl
 
-H;0 : ∀ {n m k} → (H : Hom k n) → H ; Zero _ _ == (Zero k m)
+H;0 : ∀ {n m k} → (H : Hom k n) → H ; Zero n m == Zero k m
 to (shapes (H;0 H j)) = proj₁
 from (shapes (H;0 H j)) = λ ()
 from-to (shapes (H;0 H j)) = λ { (() , x) }
@@ -347,37 +378,37 @@ elements (positions (D[F+G]=DF+DG F G j) (inj₂ y₁ , y) .(to (shapes (D[F+G]=
 -- [CD.2]
 
 Pair0;Df : ∀ {n m k} → (a : Hom n m)(f : Hom m k) →
-           ⟨ Zero n m , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f == Zero n k
-to (shapes (Pair0;Df {n} {m} {k} a f j)) (((x , x') , _), y) with decEq-refl (decEq (indexSet (Position (f j) x))) x' | y (x' , _)
-... | qq | (y' , _) rewrite qq = y'
-from (shapes (Pair0;Df {n} {m} {k} a f j)) ()
-from-to (shapes (Pair0;Df {n} {m} {k} a f j)) x = ⊥-elim (to (shapes (Pair0;Df {n} {m} {k} a f j)) x)
-to-from (shapes (Pair0;Df {n} {m} {k} a f j)) ()
-positions (Pair0;Df {n} {m} {k} a f j) s () (p , q)
+           ⟨ Zero n m , a ⟩' ; D f == Zero n k
+to (shapes (Pair0;Df a f j)) ((x , x') , y) = subst (λ z → Shape (⟨ (λ j₁ → ⊥ <| (λ ())) , a ⟩' (z , el (Position (f j) x) x'))) (decEq-refl (decEq (indexSet (Position (f j) x))) x') (y x')
+from (shapes (Pair0;Df a f j)) ()
+from-to (shapes (Pair0;Df a f j)) x = ⊥-elim (to (shapes (Pair0;Df a f j)) x)
+to-from (shapes (Pair0;Df a f j)) ()
+positions (Pair0;Df a f j) s () (p , q)
+
+Bool-elim : (P : Bool -> Set) → P true → P false → (b : Bool) → P b
+Bool-elim P pt pf true = pt
+Bool-elim P pt pf false = pf
+
+isLeft : {A B : Set} → A ⊎ B → Set
+isLeft (inj₁ x) = ⊤
+isLeft (inj₂ y) = ⊥
 
 Pair+;Df : ∀ {n m k} → (a b c : Hom n m)(f : Hom m k) →
-           ⟨ Plus b c , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f == Plus (⟨ b , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f) (⟨ c , a ⟩ ; Id' (<->-sym 2*n<->n+n) ; D f)
-to (shapes (Pair+;Df a b c f j)) (((x , x') , _) , y) with decEq-refl (decEq (indexSet (Position (f j) x))) x' | y (x' , _)
-... | qq | y' , _ rewrite qq with y'
-... | inj₁ y'' = inj₁ (((x , x') , _) , help)
-  where
-    help : (x₁ : Σ (carrier (indexSet (Position (f j) x))) (λ i → ⊤)) → Σ (Shape (Times b a (to 2*n<->n+n (isYes (decEq (indexSet (Position (f j) x)) (proj₁ x₁) x') , el (Position (f j) x) (proj₁ x₁))))) (λ s →(x₂ : carrier (indexSet (Position (Times b a (to 2*n<->n+n (isYes (decEq (indexSet (Position (f j) x)) (proj₁ x₁) x') , el (Position (f j) x) (proj₁ x₁)))) s))) → ⊤)
-    help (i , _) with decEq (indexSet (Position (f j) x)) i x' | inspect (decEq (indexSet (Position (f j) x)) i) x'
-    ... | yes refl | q = y'' , _
-    ... | no p | [ eq ] with y (i , _)
-    ... | (yi , _) rewrite eq = yi , _
-... | inj₂ y'' = inj₂ (((x , x') , _) , (λ (i , _) → {!!} , _))
-from (shapes (Pair+;Df a b c f j)) (inj₁ (((x , x') , _) , y)) = ((x , x') , _) , help
-  where
-    help : (x₁ : index (Position ((Id' (<->-sym 2*n<->n+n) ; D f) j) ((x , x') , (λ x₂ → tt)))) → Shape (⟨ Plus b c , a ⟩ (el (Position ((Id' (<->-sym 2*n<->n+n) ; D f) j) ((x , x') , (λ x₂ → tt))) x₁))
-    help i with decEq (indexSet (Position (f j) x)) (proj₁ i) x' | y i
-    ... | yes p | (y' , _) = inj₁ y' , _
-    ... | no p | (y' , _) = y' , _
-from (shapes (Pair+;Df a b c f j)) (inj₂ (((x , x') , _) , y)) = {!!}
-from-to (shapes (Pair+;Df a b c f j)) = {!!}
-to-from (shapes (Pair+;Df a b c f j)) = {!!}
-indices (positions (Pair+;Df a b c f j) s s' x) = {!!}
-elements (positions (Pair+;Df a b c f j) s s' x) = {!!}
+           ⟨ Plus b c , a ⟩' ; D f == Plus (⟨ b , a ⟩' ; D f) (⟨ c , a ⟩' ; D f)
+to (shapes (Pair+;Df a b c f j)) ((x , y) , z) = Sum.map (λ y' → (x , y) , λ i → Dec-elim (λ w → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (isYes w , el (Position (f j) x) i)) → Shape (⟨ b , a ⟩' (isYes w , el (Position (f j) x) i))) (λ p → subst (λ w → Shape (b (el (Position (f j) x) w)) ⊎ Shape (c (el (Position (f j) x) w)) → Shape (b (el (Position (f j) x) w))) (sym  p) [ id , (λ _ → y') ]′) (λ _ → id) (decEq (indexSet (Position (f j) x)) i y) (z i)) (λ y' → (x , y) , λ i → Dec-elim (λ w → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (isYes w , el (Position (f j) x) i)) → Shape (⟨ c , a ⟩' (isYes w , el (Position (f j) x) i))) (λ { refl → [ (λ _ → y') , id ]′ }) (λ _ → id) (decEq (indexSet (Position (f j) x)) i y) (z i) ) (subst (λ w → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (w , el (Position (f j) x) y))) (decEq-refl (decEq (indexSet (Position (f j) x))) y) (z y))
+from (shapes (Pair+;Df a b c f j)) (inj₁ ((x , y) , z)) = (x , y) , λ i → Bool-elim (λ w → Shape (⟨ b , a ⟩' (w , el (Position (f j) x) i)) → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (w , el (Position (f j) x) i))) inj₁ id (isYes (decEq (indexSet (Position (f j) x)) i y)) (z i)
+from (shapes (Pair+;Df a b c f j)) (inj₂ ((x , y) , z)) = (x , y) , λ i → Bool-elim (λ w → Shape (⟨ c , a ⟩' (w , el (Position (f j) x) i)) → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (w , el (Position (f j) x) i))) inj₂ id (isYes (decEq (indexSet (Position (f j) x)) i y)) (z i)
+from-to (shapes (Pair+;Df a b c f j)) ((x , y) , z) with (decEq (indexSet (Position (f j) x)) y y) | (decEq-refl (decEq (indexSet (Position (f j) x))) y) | z y
+... | yes p | refl | inj₁ x' = Inverse.f Σ-≡,≡↔≡ (refl , funext (λ i → help i (decEq (indexSet (Position (f j) x)) i y) (z i) {!!})) where
+  help : ∀ i q (zi : Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (isYes q , el (Position (f j) x) i))) → ((p : i ≡ y)(r : q ≡ yes p) → isLeft ((subst (λ w → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (isYes w , el (Position (f j) x) i))) r zi))) → Bool-elim (λ w →  Shape (⟨ b , a ⟩' (w , el (Position (f j) x) i)) → Shape (⟨(λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (w , el (Position (f j) x) i))) inj₁ (λ x₁ → x₁) (isYes q) (Dec-elim (λ w → Shape (⟨ (λ j₁ → (Shape (b j₁) ⊎ Shape (c j₁)) <| Sum.[ Position (b j₁) , Position (c j₁) ]) , a ⟩' (isYes w , el (Position (f j) x) i)) → Shape (⟨ b , a ⟩' (isYes w , el (Position (f j) x) i))) (λ p → subst (λ w → Shape (b (el (Position (f j) x) w)) ⊎ Shape (c (el (Position (f j) x) w)) → Shape (b (el (Position (f j) x) w))) (sym  p) [ id , (λ _ → x') ]′) (λ _ → id) q (zi)) ≡ zi
+  help i (yes refl) (inj₁ x) qq = refl
+  help i (yes refl) (inj₂ y) qq = ⊥-elim (qq refl refl)
+  help i (no p) zi qq = refl
+... | yes p | refl | inj₂ x' = {!!}
+
+to-from (shapes (Pair+;Df a b c f j)) (inj₁ ((x , y) , z)) = {!!}
+to-from (shapes (Pair+;Df a b c f j)) (inj₂ ((x , y) , z)) = {!!}
+positions (Pair+;Df a b c f j) = {!!}
 
 -- [CD.3]
 
@@ -417,44 +448,23 @@ elements (positions (Dsnd=fst;snd j) s s' (p , q)) tt ((tt , tt) , tt) _ = refl
 -- [CD.4]
 
 Dpair : ∀ {n m m'} → (f : Hom n m) → (g : Hom n m') → D ⟨ f , g ⟩ == ⟨ D f , D g ⟩
-to (shapes (Dpair f g (inl j))) ((x , _) , (y , _)) = (x , y) , (λ _ → tt)
-from (shapes (Dpair f g (inl j))) ((x , y) , _) = ((x , λ _ → tt) , (y , tt))
-from-to (shapes (Dpair f g (inl j))) x = refl
-to-from (shapes (Dpair f g (inl j))) x = refl
-indices (positions (Dpair f g (inl j)) s s' (p , refl)) = <->-refl
-elements (positions (Dpair f g (inl j)) ((x , _) , (y , _)) ((x , y) , _) (p , refl)) (i , _) (i' , _) (refl , q')
-  with decEq (indexSet (Position (f j) x)) i y
-... | yes refl = refl
-... | no z = refl
-to (shapes (Dpair f g (inr j))) ((x , _) , (y , _)) = (x , y) , (λ _ → tt)
-from (shapes (Dpair f g (inr j))) ((x , y) , _) = ((x , λ _ → tt) , (y , tt))
-from-to (shapes (Dpair f g (inr j))) x = refl
-to-from (shapes (Dpair f g (inr j))) x = refl
-indices (positions (Dpair f g (inr j)) s s' (p , refl)) = <->-refl
-elements (positions (Dpair f g (inr j)) ((x , _) , (y , _)) ((x , y) , _) (p , refl)) (i , _) (i' , _) (refl , q')
-  with decEq (indexSet (Position (g j) x)) i y
-... | yes refl = refl
-... | no z = refl
+Dpair f g (inl j) = ≡Cont-refl
+Dpair f g (inr j) = ≡Cont-refl
 
 -- [CD.5]
 
 chainRule : ∀ {n m k} → (f : Hom n m)(g : Hom m k) →
-            D (f ; g) == ⟨ D f , (Id' 2*n<->n+n ; fst {n} {n}) ; f ⟩ ; (Id' (<->-sym 2*n<->n+n) ; D g)
-to (shapes (chainRule f g j)) ((x , y) , (z , w)) = ((x , z) , _) , sndPart where
-  sndPart :  (i : index (Position ((Id' (<->-sym 2*n<->n+n) ; D g) j) ((x , z) , _))) → Shape (⟨ D f , (Id' 2*n<->n+n ; fst) ; f ⟩ (el (Position ((Id' (<->-sym 2*n<->n+n) ; D g) j) ((x , z) , _)) i))
-  sndPart  (i , _) with (decEq (indexSet (Position (g j) x)) i z)
-  ... | yes refl = (y i , w) , _
-  ... | no q = ((y i) , _) , _
-
-from (shapes (chainRule f g j)) (((x , y) , _) , z) = (x , λ i → proj₁ (help i)) , y , proj₂ (help y) refl where
-  help : (i : carrier (indexSet (Position (g j) x))) → Σ[ s ∈ (Shape (f (el (Position (g j) x) i))) ] (i ≡ y -> index (Position (f (el (Position (g j) x) i)) s))
-  help i with decEq (indexSet (Position (g j) x)) i y | proj₁ (z (i , _))
-  ... | yes refl | (w , w') = (w , λ _ → w')
-  ... | no ¬i≡y | (w , _) = w , λ i≡y → ⊥-elim (¬i≡y i≡y)
-from-to (shapes (chainRule f g j)) = {!!}
-to-from (shapes (chainRule f g j)) = {!!}
-positions (chainRule f g j) = {!!}
-
+            D (f ; g) == ⟨ D f , (Id' 2*n<->n+n ; fst {n} {n}) ; f ⟩' ; D g
+to (shapes (chainRule f g j)) ((x , y) , (z , w)) = ((x , z) , (λ i → Dec-elim (λ w → Shape (⟨ (λ j₁ → DiffContainer (f j₁)) , (λ j₁ → Σ (Shape (f j₁)) (λ s → (x₁ : carrier (indexSet (Position (f j₁) s))) →   Σ ⊤ (λ s₁ → (x₂ : ⊤) → ⊤)) <| (λ sf → fam (mkDeqEqSet (Σ (carrier (indexSet (Position (f j₁) (proj₁ sf)))) (λ i₁ → Σ ⊤ (λ i₂ → ⊤))) (≡-dec (decEq (indexSet (Position (f j₁) (proj₁ sf)))) (≡-dec (λ x₁ y₁ → yes refl) (λ {i} x₁ y₁ → yes refl)))) (λ ix → inl (el (Position (f j₁) (proj₁ sf)) (proj₁ ix))))) ⟩' (isYes w , el (Position (g j) x) i)))
+       (λ p → (y i) , (subst (λ w → index (Position (f (el (Position (g j) x) w)) (y w))) (sym p) w))
+       (λ ¬p → (y i) , _) (decEq (indexSet (Position (g j) x)) i z)))
+from (shapes (chainRule f g j)) ((x , y) , z) = let
+  aux = (λ i → Dec-elim (λ w → (Shape (⟨ (λ j₁ → DiffContainer (f j₁)) , (λ j₁ → Σ (Shape (f j₁)) (λ s → (x₁ : carrier (indexSet (Position (f j₁) s))) →  Σ ⊤ (λ s₁ → (x₂ : ⊤) → ⊤)) <| (λ sf → fam (mkDeqEqSet (Σ (carrier (indexSet (Position (f _) (proj₁ sf)))) (λ s₁ → Σ ⊤ (λ x₃ → ⊤))) (≡-dec (decEq (indexSet (Position (f _) (proj₁ sf)))) (≡-dec (λ x₁ y₁ → yes refl) (λ x₁ y₁ → yes refl)))) (λ ix → inl (el (Position (f _) (proj₁ sf)) (proj₁ ix))))) ⟩' (isYes w , el (Position (g j) x) i))) → Σ[ s ∈ (Shape (f (el (Position (g j) x) i))) ] (i ≡ y -> index (Position (f (el (Position (g j) x) i)) s)) ) (λ _ p → proj₁ p , λ _ → proj₂ p) (λ ¬i≡y p → (proj₁ p) , (λ i≡y → ⊥-elim (¬i≡y i≡y))) (decEq (indexSet (Position (g j) x)) i y) (z i))
+  in (x , λ i → proj₁ (aux i)) , y , proj₂ (aux y) refl
+from-to (shapes (chainRule f g j)) ((x , y) , (z , w)) =  Inverse.f Σ-≡,≡↔≡ ( Inverse.f Σ-≡,≡↔≡ (refl , funext (λ i → {!help!})) , {!subst id (sym (subst-Σ-≡,≡↔≡ !})
+to-from (shapes (chainRule f g j)) ((x , y) , z) = Inverse.f Σ-≡,≡↔≡ (refl , funext (λ i → {!!}))
+indices (positions (chainRule f g j) ((x , y) , (z , w)) ((x' , y') , z') (refl , q)) = {!!}
+elements (positions (chainRule f g j) s s'  x) = {!!}
 
 -------------------------------
 
@@ -470,3 +480,4 @@ Position (ayes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue ((e
 noes : ∀ {n m} → Hom (`2 `× n) m -> Hom n m
 Shape (noes F j) = Shape (F j)
 Position (noes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue (Sigma.map not id (el (Position (F j) s) p)))
+
