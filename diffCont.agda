@@ -302,36 +302,37 @@ from-to (shapes (H;0 H j)) = λ { (() , x) }
 to-from (shapes (H;0 H j)) = λ ()
 positions (H;0 H j) s () x
 
-helper : ∀ {n} {m} {k} (F G : Hom n (m `+ k)) {j : El m} →
-         Shape (F (inl j)) ⊎ Shape (G (inl j)) →
-         Σ ⊤ (λ s → (x : ⊤) → Shape (F (inl j))) ⊎
-         Σ ⊤ (λ s → (x : ⊤) → Shape (G (inl j)))
-helper F G (inj₁ x) = inj₁ (_ , λ _ → x)
-helper F G (inj₂ y) = inj₂ (_ , λ _ → y)
+helperProj : ∀ {n n' m k} (f : El n' → El (m `+ k)) (F G : Hom n (m `+ k)) {j : El n'} →
+         Shape (F (f j)) ⊎ Shape (G (f j)) →
+         Σ ⊤ (λ s → (x : ⊤) → Shape (F (f j))) ⊎
+         Σ ⊤ (λ s → (x : ⊤) → Shape (G (f j)))
+helperProj f F G (inj₁ x) = inj₁ (_ , λ _ → x)
+helperProj f F G (inj₂ y) = inj₂ (_ , λ _ → y)
 
-
--- TODO: update to talk about proj f in general
-
-F+G;fst : ∀ {n m k} → (F G : Hom n (m `+ k)) →
-          (Plus F G ; fst) == Plus (F ; fst) (G ; fst)
-to (shapes (F+G;fst F G j)) (_ , x) = helper F G (x tt)
-from (shapes (F+G;fst F G j)) (inj₁ (_ , x)) = _ , λ _ → inj₁ (x _)
-from (shapes (F+G;fst F G j)) (inj₂ (_ , y)) = _ , λ _ → inj₂ (y _)
-from-to (shapes (F+G;fst F G j)) (_ , x) = helper-lemma (x tt) where
-  helper-lemma :  (w : Shape (F (inl j)) ⊎ Shape (G (inl j))) →
-                   from (shapes (F+G;fst F G j)) (helper F G w) ≡ (tt , λ _ → w)
+F+G;proj : ∀ {n n' m k} → (f : El n' → El (m `+ k)) → (F G : Hom n (m `+ k)) →
+           ((Plus F G) ; proj f) == Plus (F ; proj f) (G ; proj f)
+to (shapes (F+G;proj f F G j)) (_ , x) = helperProj f F G (x _)
+from (shapes (F+G;proj f F G j)) (inj₁ (_ , x)) = _ , λ _ → inj₁ (x _)
+from (shapes (F+G;proj f F G j)) (inj₂ (_ , y)) = _ , λ _ → inj₂ (y _)
+from-to (shapes (F+G;proj f F G j)) (_ , x) = helper-lemma (x _) where
+  helper-lemma :  (w : Shape (F (f j)) ⊎ Shape (G (f j))) →
+                   from (shapes (F+G;proj f F G j)) (helperProj f F G w) ≡ (tt , λ _ → w)
   helper-lemma (inj₁ x) = refl
   helper-lemma (inj₂ y) = refl
-to-from (shapes (F+G;fst F G j)) (inj₁ x) = refl
-to-from (shapes (F+G;fst F G j)) (inj₂ y) = refl
-positions (F+G;fst F G j) (_ , ._) (inj₁ x) (p , refl) = ≡Fam-refl
-positions (F+G;fst F G j) (_ , ._) (inj₂ y) (p , refl) = ≡Fam-refl
+to-from (shapes (F+G;proj f F G j)) (inj₁ x) = refl
+to-from (shapes (F+G;proj f F G j)) (inj₂ x) = refl
+positions (F+G;proj f F G j) (_ , ._) (inj₁ x) (p , refl) = ≡Fam-refl
+positions (F+G;proj f F G j) (_ , ._) (inj₂ y) (p , refl) = ≡Fam-refl
 
-{-
+F+G;fst : ∀ {n m k} → (F G : Hom n (m `+ k)) →
+          (Plus F G ; fst {m} {k}) == Plus (F ; fst {m} {k}) (G ; fst {m} {k})
+F+G;fst = F+G;proj inl
+
 F+G;snd : ∀ {n m k} → (F G : Hom n (m `+ k)) →
           (Plus F G ; snd) == Plus (F ; snd) (G ; snd)
-F+G;snd = {!!}
--}
+F+G;snd = F+G;proj inr
+
+{-
 
 -- Derivatives
 
@@ -470,7 +471,18 @@ elements (positions (chainRule f g j) s s'  x) = {!!}
 
 g0DDf : ∀ {n m} → (f : Hom n n)(g h : Hom m n)(k : Hom m n) →
        ⟨ ⟨ g , Zero m n ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f) == ⟨ g , k ⟩' ; D f
-g0DDf = {!!}
+to (shapes (g0DDf f g h k j)) (((x , x') , x'') , y) = (x , x') , help where
+  help : (x₁ : index (Position (D f j) (x , x'))) → Shape (⟨ g , k ⟩' (el (Position (D f j) (x , x')) x₁))
+  help i with (decEq (indexSet (Position (f j) x)) i x') |  (decEq (indexSet (Position (f j) x)) i x'') | y i | y x' | y x''
+  help i | yes p | yes q | yi | _ | _ = yi
+  help i | yes p | no q | yi | yx' | yx'' = {!!}
+  help i | no p | yes q | yi | yx' | yx'' = {!!}
+  help i | no p | no q | yi | _ | _ = yi
+
+from (shapes (g0DDf f g h k j)) = {!!}
+from-to (shapes (g0DDf f g h k j)) = {!!}
+to-from (shapes (g0DDf f g h k j)) = {!!}
+positions (g0DDf f g h k j) = {!!}
 
 
 -- [CD.7]
@@ -496,3 +508,4 @@ noes : ∀ {n m} → Hom (`2 `× n) m -> Hom n m
 Shape (noes F j) = Shape (F j)
 Position (noes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue (Sigma.map not id (el (Position (F j) s) p)))
 
+-}
