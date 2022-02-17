@@ -1,4 +1,5 @@
 {-# OPTIONS --without-K #-}
+-- {-# OPTIONS --cubical #-}
 module diffCont where
 
 open import Data.Nat as Nat  hiding (_+_)
@@ -40,11 +41,20 @@ from <->-refl = λ x → x
 from-to <->-refl = λ x → refl
 to-from <->-refl = λ x → refl
 
+<->-refl-≡ : {A B : Set} → A ≡ B → A <-> B
+<->-refl-≡ refl = <->-refl
+
 <->-sym : {A B : Set} → A <-> B → B <-> A
 to (<->-sym f) = from f
 from (<->-sym f) = to f
 from-to (<->-sym f) = to-from f
 to-from (<->-sym f) = from-to f
+
+<->-trans : {A B C : Set} → A <-> B → B <-> C → A <-> C
+to (<->-trans p q) = to q ∘ to p
+from (<->-trans p q) = from p ∘ from q
+from-to (<->-trans p q) x = trans (cong (from p) (from-to q (to p x))) (from-to p x)
+to-from (<->-trans p q) x = trans (cong (to q) (to-from p (from q x))) (to-from q x)
 
 related-by : {A B : Set} -> A <-> B -> A -> B -> Set
 related-by f a b = to f a ≡ b × from f b ≡ a
@@ -146,6 +156,15 @@ open _≡Fam_
 indices ≡Fam-refl = <->-refl
 elements ≡Fam-refl i ._ (refl , snd) = refl
 
+≡Fam-sym : {X : Set}{A B : Fam X} → A ≡Fam B → B ≡Fam A
+indices (≡Fam-sym p) = <->-sym (indices p)
+elements (≡Fam-sym p) i i' (r , q) = sym (elements p i' i (q , r))
+
+≡Fam-trans : {X : Set}{A B C : Fam X} → A ≡Fam B → B ≡Fam C → A ≡Fam C
+indices (≡Fam-trans p q) = <->-trans (indices p) (indices q)
+elements (≡Fam-trans p q) i i' (r , r') = trans (elements p i (to (indices p) i) (related-by-to (indices p) i _ refl))
+                                                (elements q (to (indices p) i) i' (r , trans (sym (to-from (indices p) (from (indices q) i'))) (cong (to (indices p)) r')))
+
 Fam-map : ∀ {D D' : Set} → (D → D') → Fam D → Fam D'
 indexSet (Fam-map f X) = indexSet X
 el (Fam-map f X) = λ y → f (el X y)
@@ -175,6 +194,16 @@ elements (positions ≡Cont-refl s s' (refl , p)) i i' (refl , p') = refl
 
 ⟦_⟧ : ∀ {n} → n -Container → (El n → Set) → Set
 ⟦_⟧ {n} (S <| P) X = Σ[ s ∈ S ] ((i : index (P s)) → X (el (P s) i))
+
+-- Need coherent isomorphisms to prove
+postulate
+  Σ-<-> : {A A' : Set}{B : A → Set}{B' : A' → Set} → (f : A <-> A') → ((x : A) → B x <-> B' (to f x)) → Σ A B <-> Σ A' B'
+  Π-<-> : {A A' : Set}{B : A → Set}{B' : A' → Set} → (f : A <-> A') → ((x : A) → B x <-> B' (to f x)) → ((x : A) →  B x) <-> ((x : A') → B' x)
+
+
+⟦_≡Cont_⟧ : ∀ {n} → (A B : n -Container) → A ≡Cont B → (X : El n → Set) → ⟦ A ⟧ X <-> ⟦ B ⟧ X
+⟦ A ≡Cont B ⟧ p X = Σ-<-> (shapes p) (λ s → let q = (indices (positions p s (to (shapes p) s) (related-by-to (shapes p) s _ refl))) in
+                                                Π-<-> q (λ i → <->-refl-≡ (cong X (elements (positions p s _ (related-by-to (shapes p) s _ refl)) i _ (related-by-to q i _ refl)))))
 
 Hom : FinSet -> FinSet -> Set1
 Hom n m = El m → n -Container
@@ -332,7 +361,7 @@ F+G;snd : ∀ {n m k} → (F G : Hom n (m `+ k)) →
           (Plus F G ; snd) == Plus (F ; snd) (G ; snd)
 F+G;snd = F+G;proj inr
 
-{-
+
 
 -- Derivatives
 
@@ -492,7 +521,6 @@ zeroesDDf : ∀ {n m ℓ} → (f : Hom n m)(g h k : Hom ℓ n) →
               ⟨ ⟨ Zero ℓ n , g ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f)
 zeroesDDf = {!!}
 
-
 -------------------------------
 
 
@@ -508,4 +536,4 @@ noes : ∀ {n m} → Hom (`2 `× n) m -> Hom n m
 Shape (noes F j) = Shape (F j)
 Position (noes F j) s = ΣFam {indexSet (Position (F j) s)} (λ p → ifTrue (Sigma.map not id (el (Position (F j) s) p)))
 
--}
+
