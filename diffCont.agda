@@ -121,6 +121,13 @@ Dec-elim P pt pf (no ¬p) = pf ¬p
 decEq-refl : ∀ {A : Set} → (dec : DecidableEquality A) → (x : A) → isYes (dec x x) ≡ true
 decEq-refl dec x = Dec-elim (λ d → isYes d ≡ true) (λ _ → refl) (λ ¬p → ⊥-elim (¬p refl)) (dec x x)
 
+decEq-sym : ∀ {A : Set} → (dec : DecidableEquality A) → (x y : A) → isYes (dec x y) ≡ isYes (dec y x)
+decEq-sym dec x y with dec x y | dec y x
+... | yes p | yes q = refl
+... | yes p | no q = ⊥-elim (q (sym p))
+... | no p | yes q = ⊥-elim (p (sym q))
+... | no p | no q = refl
+
 ⊤' : DecEqSet
 carrier ⊤' = ⊤
 decEq ⊤' x y = yes refl
@@ -502,10 +509,10 @@ g0DDf : ∀ {n m} → (f : Hom n n)(g h : Hom m n)(k : Hom m n) →
        ⟨ ⟨ g , Zero m n ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f) == ⟨ g , k ⟩' ; D f
 to (shapes (g0DDf f g h k j)) (((x , x') , x'') , y) = (x , x') , help where
   help : (x₁ : index (Position (D f j) (x , x'))) → Shape (⟨ g , k ⟩' (el (Position (D f j) (x , x')) x₁))
-  help i with (decEq (indexSet (Position (f j) x)) i x') |  (decEq (indexSet (Position (f j) x)) i x'') | y i | y x' | y x''
+  help i with (decEq (indexSet (Position (f j) x)) i x') in eq-ix' |  (decEq (indexSet (Position (f j) x)) i x'') in eq-ix'' | y i | y x' | y x''
   help i | yes p | yes q | yi | _ | _ = yi
-  help i | yes p | no q | yi | yx' | yx'' = {!!}
-  help i | no p | yes q | yi | yx' | yx'' = {!!}
+  help i | yes refl | no q | yi | yx' | yx'' rewrite decEq-refl (decEq (indexSet (Position (f j) x))) x'' | decEq-sym (decEq (indexSet (Position (f j) x))) x'' i | eq-ix'' = ⊥-elim yx''
+  help i | no p | yes refl | yi | yx' | yx'' rewrite decEq-refl (decEq (indexSet (Position (f j) x))) i | decEq-sym (decEq (indexSet (Position (f j) x))) x' i | eq-ix' = ⊥-elim yx''
   help i | no p | no q | yi | _ | _ = yi
 
 from (shapes (g0DDf f g h k j)) = {!!}
@@ -519,7 +526,11 @@ positions (g0DDf f g h k j) = {!!}
 zeroesDDf : ∀ {n m ℓ} → (f : Hom n m)(g h k : Hom ℓ n) →
              ⟨ ⟨ Zero ℓ n , h ⟩' , ⟨ g , k ⟩' ⟩' ; D (D f) ==
               ⟨ ⟨ Zero ℓ n , g ⟩' , ⟨ h , k ⟩' ⟩' ; D (D f)
-zeroesDDf = {!!}
+to (shapes (zeroesDDf f g h k j)) = ?
+from (shapes (zeroesDDf f g h k j)) = ?
+from-to (shapes (zeroesDDf f g h k j)) = ?
+to-from (shapes (zeroesDDf f g h k j)) = ?
+positions (zeroesDDf f g h k j) = {!!}
 
 -------------------------------
 
