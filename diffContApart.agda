@@ -114,6 +114,10 @@ module _ {X : Set} where
   _<-_ : forall (x : X){n}(xs : Vec X n) -> Set
   x <- xs = x ,- [] <= xs
 
+  indexOf : forall {x}{n}{xs : Vec X n} -> x <- xs -> Fin n
+  indexOf (y ^- p) = suc (indexOf p)
+  indexOf (_ ,- p) = zero
+
   infix 30 #_
   #_ : {n : Nat}(xs : Vec X n) -> Set
   # xs = forall x -> x ,- x ,- [] <= xs -> Zero
@@ -299,21 +303,21 @@ record Con (m : Nat) : Set1 where
   constructor _<|_
   field
     Sh : Set
-    Po : Sh -> Fam (Fin m)
+    Po : Sh -> Fin m -> Datoid
 open Con public
 
-record Der (m n : Nat)(C : Con m)(X : Fin m -> Set) : Set where
-  constructor _<_^_!_
+record Der {m : Nat}(ds : Fin m -> Nat)(C : Con m)(X : Fin m -> Set)(X' : (i : Fin m)(j : Fin (ds i)) -> Set) : Set where
+  constructor _<_#_^_!_
   field
     shape : Sh C
-    holes : Vec (index (Po C shape)) n
-    apart : # holes
-    stuff : (i : index (Po C shape) - holes) -> X (el (Po C shape) (fst i))
+    holes : (i : Fin m) -> Vec (Data (Po C shape i)) (ds i)
+    apart : (i : Fin m) -> # (holes i)
+    stuff : (i : Fin m) -> (p : (Data (Po C shape i)) - (holes i)) -> X i
+    focus : (i : Fin m) -> (j : Fin (ds i)) -> X' i j
 
-plug : forall {n m C X} -> Der m (su n) C X -> (forall i -> X i) -> Der m n C X
-plug {C = S <| P} {X} (s < h ,- hs ^ hd ! f) x =
-  s < hs ^ h ^- io ?# hd ! f' where
-    f' : (i : index (P s) - hs) → X (el (P s) (fst i))
-    f' i with (indexSet (P s) ~? fst i) h | l2r (hIso (indexSet (P s)) h hs hd) i in eq
-    ... | ff , y | ff , j rewrite (!~ fst ~$~ inl-injective eq) = f j
-    ... | _ | tt , _ = x (el (P s) (fst i))
+plug : forall {m ds C X} -> Der {m} ds C X (\ i j -> X i) -> [ (ds $> Fin) -:> X ] -> Der (\ x -> 0) C X (\ i ())
+plug {m} {C = S <| P} {X} (s < h # hd ^ f ! f') x = s < (\ _ → []) # (\ i → #0) ^ g ! \ i () where
+  g : (i : Fin m) → Data (P s i) - [] → X i
+  g i (x , _) with seek (P s i) (h i) (hd i) x
+  ... | ff , #xhi = f i (x , #xhi)
+  ... | tt , x<-hi = f' i (indexOf x<-hi)
